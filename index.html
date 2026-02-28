@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v36.6 - 算术增强版</title>
+    <title>私人旅行高级工作台 v37.0 - 跨天分摊增强版</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -28,7 +28,7 @@
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            document.getElementById('syncStatus').innerText = "☁️ 云端已同步";
+            document.getElementById('syncStatus').innerText = "☁️ 云端同步成功";
             renderSidebar();
             if (window.activeId && window.trips[window.activeId]) renderTable();
             else if (Object.keys(window.trips).length > 0 && !window.activeId) loadTrip(Object.keys(window.trips)[0]);
@@ -40,22 +40,19 @@
     <style>
         :root { --sidebar-bg: #1e293b; --accent: #3b82f6; --bg-main: #f8fafc; --border-color: #e2e8f0; --text-main: #1e293b; --radius: 12px; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-main); overflow: hidden; }
-        #sidebar { width: 260px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; }
+        #sidebar { width: 260px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; flex-shrink: 0; }
         .side-header { padding: 24px 20px; font-size: 18px; font-weight: 700; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
         #trip-list { flex: 1; overflow-y: auto; padding: 10px 0; }
-        .trip-item { padding: 14px 20px; cursor: pointer; color: #94a3b8; margin: 4px 12px; border-radius: 8px; }
-        .trip-item.active { background: var(--accent); color: white; }
+        .trip-item { padding: 14px 20px; cursor: pointer; color: #94a3b8; margin: 4px 12px; border-radius: 8px; transition: 0.2s; }
+        .trip-item.active { background: var(--accent); color: white; font-weight: 600; }
         #main { flex: 1; overflow: auto; padding: 30px; }
         .summary-bar { display: flex; gap: 15px; margin-bottom: 25px; }
         .stat-card { background: white; flex: 1; padding: 15px 20px; border-radius: var(--radius); border: 1px solid var(--border-color); }
-        .stat-card .label { font-size: 11px; color: #94a3b8; font-weight: 600; margin-bottom: 4px; display: block; }
+        .stat-card .label { font-size: 11px; color: #94a3b8; font-weight: 600; display: block; }
         .stat-card .value { font-size: 18px; font-weight: 700; }
-        .stat-card.highlight { background: #222; border: none; }
-        .stat-card.highlight .label { color: #888; }
-        .stat-card.highlight .value { color: #ffd700; font-size: 22px; }
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         table { border-collapse: collapse; width: 100%; min-width: 1100px; font-size: 13px; table-layout: fixed; }
-        th { background: #f8fafc; color: #64748b; padding: 12px 8px; border: 1px solid var(--border-color); }
+        th { background: #f8fafc; color: #64748b; padding: 10px 8px; border: 1px solid var(--border-color); font-size: 12px; }
         td { border: 1px solid var(--border-color); height: 44px; position: relative; background: white; }
         input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; outline: none; }
         .day-start { border-top: 2px solid #cbd5e1 !important; }
@@ -68,19 +65,18 @@
 <body>
 
 <div id="sidebar">
-    <div class="side-header"><span>✈️ 旅行工作台</span><button onclick="addTrip()" style="background:var(--accent); color:white; border:none; border-radius:4px; width:24px; cursor:pointer">+</button></div>
+    <div class="side-header"><span>✈️ 旅行工作台</span><button onclick="addTrip()" style="cursor:pointer; background:var(--accent); border:none; color:white; width:24px; border-radius:4px">+</button></div>
     <div id="trip-list"></div>
-    <div id="syncStatus" style="padding:15px; background:#0f172a; font-size:11px; color:#64748b">📡 连接中...</div>
+    <div id="syncStatus" style="padding:15px; background:#0f172a; font-size:11px; color:#64748b">📡 同步中...</div>
 </div>
 
 <div id="main">
     <div id="content-area" style="display:none">
         <div class="summary-bar">
-            <div class="stat-card"><span class="label">交通总计</span><span class="value" id="sum-p1">￥0</span></div>
-            <div class="stat-card"><span class="label">项目总计</span><span class="value" id="sum-p2">￥0</span></div>
-            <div class="stat-card"><span class="label">酒店总计</span><span class="value" id="sum-p3">￥0</span></div>
-            <div class="stat-card"><span class="label">餐饮总计</span><span class="value" id="sum-p4">￥0</span></div>
-            <div class="stat-card highlight"><span class="label">预计总支出</span><span class="value" id="sum-all">￥0</span></div>
+            <div class="stat-card"><span class="label">交通</span><span class="value" id="sum-p1">￥0</span></div>
+            <div class="stat-card"><span class="label">项目</span><span class="value" id="sum-p2">￥0</span></div>
+            <div class="stat-card"><span class="label">酒店</span><span class="value" id="sum-p3">￥0</span></div>
+            <div class="stat-card"><span class="label">餐饮</span><span class="value" id="sum-p4">￥0</span></div>
         </div>
         <button onclick="addDay()" style="background:#10b981; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-bottom:20px;">+ 新增日期</button>
         <div class="excel-box">
@@ -89,8 +85,8 @@
                     <tr>
                         <th rowspan="2" style="width:50px">天数</th><th rowspan="2" style="width:120px">日期</th>
                         <th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th>
-                        <th colspan="2">交通 (支持+算术)</th><th colspan="2">项目</th>
-                        <th colspan="2">酒店 (支持+算术)</th><th colspan="2">餐饮</th>
+                        <th colspan="2">交通 (可算术)</th><th colspan="2">项目项目</th>
+                        <th colspan="2">酒店 (可算术)</th><th colspan="2">餐饮</th>
                         <th rowspan="2" style="width:40px">删</th>
                     </tr>
                     <tr>
@@ -105,18 +101,11 @@
 </div>
 
 <script>
-    // --- 核心算术解析函数 ---
-    function parseMath(input) {
-        if (typeof input !== 'string') return input;
-        // 只允许数字、加号、减号、乘号、除号、括号和点
-        if (!/^[\d\+\-\*\/\.\(\)\s]+$/.test(input)) return input;
-        try {
-            // 使用 Function 代替 eval 更安全一点，计算结果并保留两位小数（如果是整数则不保留）
-            const result = new Function(`return ${input}`)();
-            return isFinite(result) ? Number(parseFloat(result.toFixed(2))) : input;
-        } catch (e) {
-            return input;
-        }
+    // 算术解析
+    function parseMath(str) {
+        if (!str || typeof str !== 'string') return str;
+        if (!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str)) return str;
+        try { return new Function(`return ${str}`)(); } catch(e) { return str; }
     }
 
     function renderTable() {
@@ -130,25 +119,26 @@
                 const tr = document.createElement('tr');
                 if (rIdx === 0) tr.classList.add('day-start');
 
+                // 天数日期
                 if (rIdx === 0) {
                     tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center; font-weight:bold">D${dIdx+1}</td>`;
                     tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx}, this.value)"></td>`;
                 }
 
-                // 所在地
-                renderMergedCell(tr, day.rows, rIdx, dIdx, 'loc', (dIdx%2==0?'#f0f9ff':'#e0f2fe'), false);
-                // 时间
-                tr.innerHTML += `<td><input value="${row.time}" onblur="updateValue(${dIdx},${rIdx},'time',this.value)"></td>`;
-                // 交通详情 + 金额 (联动)
-                renderMergedCell(tr, day.rows, rIdx, dIdx, 't1', 'white', true, 'p1');
-                // 项目详情 + 金额
-                tr.innerHTML += `<td><input value="${row.t2}" onblur="updateValue(${dIdx},${rIdx},'t2',this.value)"></td>`;
-                tr.innerHTML += `<td><input value="${row.p2}" onblur="updateMathValue(${dIdx},${rIdx},'p2',this.value)"></td>`;
-                // 酒店详情 + 金额 (联动)
-                renderMergedCell(tr, day.rows, rIdx, dIdx, 'h_t', (dIdx%2==0?'#fefce8':'#fef9c3'), true, 'p3');
-                // 餐饮详情 + 金额
-                tr.innerHTML += `<td><input value="${row.t4}" onblur="updateValue(${dIdx},${rIdx},'t4',this.value)"></td>`;
-                tr.innerHTML += `<td><input value="${row.p4}" onblur="updateMathValue(${dIdx},${rIdx},'p4',this.value)"></td>`;
+                // 渲染列
+                renderCell(tr, dIdx, rIdx, 'loc', (dIdx%2==0?'#f0f9ff':'#e0f2fe'), true); // 所在地
+                tr.innerHTML += `<td><input value="${row.time}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
+                renderCell(tr, dIdx, rIdx, 't1', 'white', true, 'p1'); // 交通详情+金额
+                
+                // 项目
+                tr.innerHTML += `<td><input value="${row.t2}" onblur="updateVal(${dIdx},${rIdx},'t2',this.value)"></td>`;
+                tr.innerHTML += `<td><input value="${row.p2}" onblur="updateMath(${dIdx},${rIdx},'p2',this.value)"></td>`;
+
+                renderCell(tr, dIdx, rIdx, 'h_t', (dIdx%2==0?'#fefce8':'#fef9c3'), true, 'p3'); // 酒店详情+金额
+
+                // 餐饮
+                tr.innerHTML += `<td><input value="${row.t4}" onblur="updateVal(${dIdx},${rIdx},'t4',this.value)"></td>`;
+                tr.innerHTML += `<td><input value="${row.p4}" onblur="updateMath(${dIdx},${rIdx},'p4',this.value)"></td>`;
 
                 tr.innerHTML += `<td style="text-align:center; cursor:pointer; color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕<button class="row-insert-btn" onclick="event.stopPropagation(); insertRow(${dIdx},${rIdx})">+</button></td>`;
                 tbody.appendChild(tr);
@@ -157,7 +147,8 @@
         updateStats();
     }
 
-    function renderMergedCell(tr, rows, rIdx, dIdx, key, bg, hasFill, nextKey) {
+    function renderCell(tr, dIdx, rIdx, key, bg, hasFill, pKey) {
+        const rows = window.trips[window.activeId].days[dIdx].rows;
         const val = rows[rIdx][key] || "";
         if (rIdx > 0 && val !== "" && val === rows[rIdx-1][key]) return;
 
@@ -171,65 +162,74 @@
         const td = document.createElement('td');
         if (span > 1) td.rowSpan = span;
         td.style.background = bg;
-        td.innerHTML = `<input value="${val}" onblur="updateValue(${dIdx},${rIdx},'${key}',this.value)">`;
-        if (hasFill) td.innerHTML += `<span class="fill-btn" onclick="doFill联动(${dIdx},${rIdx},'${key}','${nextKey}')">↓</span>`;
+        // 存储原始输入以便重新计算
+        td.innerHTML = `<input value="${val}" onblur="updateVal(${dIdx},${rIdx},'${key}',this.value)">`;
+        if (hasFill) td.innerHTML += `<span class="fill-btn" onclick="smartFill(${dIdx},${rIdx},'${key}','${pKey}')">↓</span>`;
         tr.appendChild(td);
 
-        if (nextKey) {
-            const tdPrice = document.createElement('td');
-            if (span > 1) tdPrice.rowSpan = span;
-            tdPrice.style.background = bg;
-            // 金额框支持算术
-            tdPrice.innerHTML = `<input value="${rows[rIdx][nextKey]}" onblur="updateMathValue(${dIdx},${rIdx},'${nextKey}',this.value)">`;
-            tr.appendChild(tdPrice);
+        if (pKey) {
+            const tdP = document.createElement('td');
+            if (span > 1) tdP.rowSpan = span;
+            tdP.style.background = bg;
+            tdP.innerHTML = `<input value="${rows[rIdx][pKey]}" onblur="updateMath(${dIdx},${rIdx},'${pKey}',this.value)">`;
+            tr.appendChild(tdP);
         }
     }
 
-    window.updateMathValue = function(dIdx, rIdx, key, val) {
-        const result = parseMath(val);
-        window.trips[window.activeId].days[dIdx].rows[rIdx][key] = result;
-        renderTable(); // 必须重绘以显示计算结果
-        window.saveToCloud();
-    };
-
-    window.doFill联动 = function(dIdx, rIdx, key, pKey) {
-        const day = window.trips[window.activeId].days[dIdx];
-        const val = day.rows[rIdx][key];
-        const price = day.rows[rIdx][pKey];
-        if (!val) return;
-        for (let i = rIdx + 1; i < day.rows.length; i++) {
-            if (day.rows[i][key] && day.rows[i][key].trim() !== "") break;
-            day.rows[i][key] = val;
-            if(pKey) day.rows[i][pKey] = price;
+    // 智能分摊填充逻辑
+    window.smartFill = function(dIdx, rIdx, key, pKey) {
+        const trip = window.trips[window.activeId];
+        const rawInput = trip.days[dIdx].rows[rIdx][pKey] || "0";
+        const val = trip.days[dIdx].rows[rIdx][key];
+        
+        // 1. 跨天寻找空白行
+        let targets = [];
+        let cd = dIdx, cr = rIdx + 1;
+        while(cd < trip.days.length) {
+            while(cr < trip.days[cd].rows.length) {
+                if(trip.days[cd].rows[cr][key] && trip.days[cd].rows[cr][key].trim() !== "") { cd=999; break; }
+                targets.push({d:cd, r:cr});
+                cr++;
+            }
+            cd++; cr=0;
         }
+        if(targets.length === 0) return;
+
+        // 2. 算术解析与补平分摊
+        let totalCount = targets.length + 1;
+        let totalSum = parseMath(rawInput.toString());
+        let per = Math.floor((totalSum / totalCount) * 100) / 100;
+        let last = (totalSum - (per * (totalCount - 1))).toFixed(2);
+
+        // 3. 应用
+        trip.days[dIdx].rows[rIdx][pKey] = per;
+        targets.forEach((t, i) => {
+            trip.days[t.d].rows[t.r][key] = val;
+            trip.days[t.d].rows[t.r][pKey] = (i === targets.length - 1) ? Number(last) : per;
+        });
+
         renderTable(); window.saveToCloud();
     };
 
-    window.updateValue = function(dIdx, rIdx, key, val) {
-        window.trips[window.activeId].days[dIdx].rows[rIdx][key] = val;
-        if (['loc', 'h_t', 't1'].includes(key)) renderTable();
-        else updateStats();
-        window.saveToCloud();
-    };
-
-    window.updateStats = function() {
-        let p1=0, p2=0, p3=0, p4=0; const trip = window.trips[window.activeId]; if(!trip) return;
-        trip.days.forEach(day => {
-            day.rows.forEach((row, rIdx) => {
-                p2 += Number(row.p2) || 0; p4 += Number(row.p4) || 0;
-                if (rIdx === 0 || row.t1 === "" || row.t1 !== day.rows[rIdx-1].t1) p1 += Number(row.p1) || 0;
-                if (rIdx === 0 || row.h_t === "" || row.h_t !== day.rows[rIdx-1].h_t) p3 += Number(row.p3) || 0;
+    window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; if(['loc','t1','h_t'].includes(k)) renderTable(); window.saveToCloud(); };
+    window.updateMath = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=parseMath(v); renderTable(); window.saveToCloud(); };
+    window.updateStats = () => {
+        let p1=0, p2=0, p3=0, p4=0;
+        window.trips[window.activeId].days.forEach(day => {
+            day.rows.forEach(r => { 
+                p1 += Number(r.p1)||0; p2 += Number(r.p2)||0; 
+                p3 += Number(r.p3)||0; p4 += Number(r.p4)||0; 
             });
         });
-        document.getElementById('sum-p1').innerText = '￥' + p1.toLocaleString();
-        document.getElementById('sum-p2').innerText = '￥' + p2.toLocaleString();
-        document.getElementById('sum-p3').innerText = '￥' + p3.toLocaleString();
-        document.getElementById('sum-p4').innerText = '￥' + p4.toLocaleString();
-        document.getElementById('sum-all').innerText = '￥' + (p1+p2+p3+p4).toLocaleString();
+        document.getElementById('sum-p1').innerText = '￥'+p1.toFixed(2);
+        document.getElementById('sum-p2').innerText = '￥'+p2.toFixed(2);
+        document.getElementById('sum-p3').innerText = '￥'+p3.toFixed(2);
+        document.getElementById('sum-p4').innerText = '￥'+p4.toFixed(2);
     };
 
-    window.updateDayDate = (dIdx, val) => { window.trips[window.activeId].days[dIdx].date = val; window.saveToCloud(); };
-    window.addTrip = () => { const n = prompt("行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}]}; window.saveToCloud(); loadTrip(id); } };
+    // 基础功能
+    window.updateDayDate = (d, v) => { window.trips[window.activeId].days[d].date = v; window.saveToCloud(); };
+    window.addTrip = () => { const n = prompt("名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}]}; window.saveToCloud(); loadTrip(id); } };
     window.loadTrip = (id) => { window.activeId = id; renderSidebar(); renderTable(); document.getElementById('content-area').style.display='block'; };
     window.renderSidebar = () => {
         const l = document.getElementById('trip-list'); l.innerHTML = '';
@@ -239,8 +239,8 @@
         });
     };
     window.addDay = () => { window.trips[window.activeId].days.push({date:'', rows:[{loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}); renderTable(); window.saveToCloud(); };
-    window.insertRow = (dIdx, rIdx) => { window.trips[window.activeId].days[dIdx].rows.splice(rIdx + 1, 0, {loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}); renderTable(); window.saveToCloud(); };
-    window.delRow = (dIdx, rIdx) => { window.trips[window.activeId].days[dIdx].rows.splice(rIdx, 1); if(window.trips[window.activeId].days[dIdx].rows.length===0) window.trips[window.activeId].days.splice(dIdx, 1); renderTable(); window.saveToCloud(); };
+    window.insertRow = (d, r) => { window.trips[window.activeId].days[d].rows.splice(r+1, 0, {loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}); renderTable(); window.saveToCloud(); };
+    window.delRow = (d, r) => { window.trips[window.activeId].days[d].rows.splice(r, 1); if(window.trips[window.activeId].days[d].rows.length===0) window.trips[window.activeId].days.splice(d, 1); renderTable(); window.saveToCloud(); };
 </script>
 </body>
 </html>

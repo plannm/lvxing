@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v36.6 - 交通全联动版</title>
+    <title>私人旅行高级工作台 v36.6 - 算术增强版</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -76,11 +76,11 @@
 <div id="main">
     <div id="content-area" style="display:none">
         <div class="summary-bar">
-            <div class="stat-card"><span class="label">交通</span><span class="value" id="sum-p1">￥0</span></div>
-            <div class="stat-card"><span class="label">项目</span><span class="value" id="sum-p2">￥0</span></div>
-            <div class="stat-card"><span class="label">酒店</span><span class="value" id="sum-p3">￥0</span></div>
-            <div class="stat-card"><span class="label">餐饮</span><span class="value" id="sum-p4">￥0</span></div>
-            <div class="stat-card highlight"><span class="label">总支出</span><span class="value" id="sum-all">￥0</span></div>
+            <div class="stat-card"><span class="label">交通总计</span><span class="value" id="sum-p1">￥0</span></div>
+            <div class="stat-card"><span class="label">项目总计</span><span class="value" id="sum-p2">￥0</span></div>
+            <div class="stat-card"><span class="label">酒店总计</span><span class="value" id="sum-p3">￥0</span></div>
+            <div class="stat-card"><span class="label">餐饮总计</span><span class="value" id="sum-p4">￥0</span></div>
+            <div class="stat-card highlight"><span class="label">预计总支出</span><span class="value" id="sum-all">￥0</span></div>
         </div>
         <button onclick="addDay()" style="background:#10b981; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-bottom:20px;">+ 新增日期</button>
         <div class="excel-box">
@@ -89,8 +89,8 @@
                     <tr>
                         <th rowspan="2" style="width:50px">天数</th><th rowspan="2" style="width:120px">日期</th>
                         <th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th>
-                        <th colspan="2">交通方式</th><th colspan="2">行程项目</th>
-                        <th colspan="2">住宿酒店</th><th colspan="2">餐饮</th>
+                        <th colspan="2">交通 (支持+算术)</th><th colspan="2">项目</th>
+                        <th colspan="2">酒店 (支持+算术)</th><th colspan="2">餐饮</th>
                         <th rowspan="2" style="width:40px">删</th>
                     </tr>
                     <tr>
@@ -105,6 +105,20 @@
 </div>
 
 <script>
+    // --- 核心算术解析函数 ---
+    function parseMath(input) {
+        if (typeof input !== 'string') return input;
+        // 只允许数字、加号、减号、乘号、除号、括号和点
+        if (!/^[\d\+\-\*\/\.\(\)\s]+$/.test(input)) return input;
+        try {
+            // 使用 Function 代替 eval 更安全一点，计算结果并保留两位小数（如果是整数则不保留）
+            const result = new Function(`return ${input}`)();
+            return isFinite(result) ? Number(parseFloat(result.toFixed(2))) : input;
+        } catch (e) {
+            return input;
+        }
+    }
+
     function renderTable() {
         const tbody = document.getElementById('table-body');
         tbody.innerHTML = '';
@@ -116,33 +130,26 @@
                 const tr = document.createElement('tr');
                 if (rIdx === 0) tr.classList.add('day-start');
 
-                // 1. 日期天数 (固定)
                 if (rIdx === 0) {
                     tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center; font-weight:bold">D${dIdx+1}</td>`;
                     tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx}, this.value)"></td>`;
                 }
 
-                // 2. 所在地 (合并)
+                // 所在地
                 renderMergedCell(tr, day.rows, rIdx, dIdx, 'loc', (dIdx%2==0?'#f0f9ff':'#e0f2fe'), false);
-                
-                // 3. 时间 (不合并)
+                // 时间
                 tr.innerHTML += `<td><input value="${row.time}" onblur="updateValue(${dIdx},${rIdx},'time',this.value)"></td>`;
-
-                // 4. 交通方式与金额 (双联动合并)
+                // 交通详情 + 金额 (联动)
                 renderMergedCell(tr, day.rows, rIdx, dIdx, 't1', 'white', true, 'p1');
-
-                // 5. 行程项目 (不合并)
+                // 项目详情 + 金额
                 tr.innerHTML += `<td><input value="${row.t2}" onblur="updateValue(${dIdx},${rIdx},'t2',this.value)"></td>`;
-                tr.innerHTML += `<td><input type="number" value="${row.p2}" onblur="updateValue(${dIdx},${rIdx},'p2',this.value)"></td>`;
-
-                // 6. 酒店名称与金额 (双联动合并)
+                tr.innerHTML += `<td><input value="${row.p2}" onblur="updateMathValue(${dIdx},${rIdx},'p2',this.value)"></td>`;
+                // 酒店详情 + 金额 (联动)
                 renderMergedCell(tr, day.rows, rIdx, dIdx, 'h_t', (dIdx%2==0?'#fefce8':'#fef9c3'), true, 'p3');
-
-                // 7. 餐饮 (不合并)
+                // 餐饮详情 + 金额
                 tr.innerHTML += `<td><input value="${row.t4}" onblur="updateValue(${dIdx},${rIdx},'t4',this.value)"></td>`;
-                tr.innerHTML += `<td><input type="number" value="${row.p4}" onblur="updateValue(${dIdx},${rIdx},'p4',this.value)"></td>`;
+                tr.innerHTML += `<td><input value="${row.p4}" onblur="updateMathValue(${dIdx},${rIdx},'p4',this.value)"></td>`;
 
-                // 8. 操作
                 tr.innerHTML += `<td style="text-align:center; cursor:pointer; color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕<button class="row-insert-btn" onclick="event.stopPropagation(); insertRow(${dIdx},${rIdx})">+</button></td>`;
                 tbody.appendChild(tr);
             });
@@ -150,7 +157,6 @@
         updateStats();
     }
 
-    // 联动合并渲染器：如果 nextKey 存在，则同时合并金额列
     function renderMergedCell(tr, rows, rIdx, dIdx, key, bg, hasFill, nextKey) {
         const val = rows[rIdx][key] || "";
         if (rIdx > 0 && val !== "" && val === rows[rIdx-1][key]) return;
@@ -173,22 +179,28 @@
             const tdPrice = document.createElement('td');
             if (span > 1) tdPrice.rowSpan = span;
             tdPrice.style.background = bg;
-            tdPrice.innerHTML = `<input type="number" value="${rows[rIdx][nextKey]}" onblur="updateValue(${dIdx},${rIdx},'${nextKey}',this.value)">`;
+            // 金额框支持算术
+            tdPrice.innerHTML = `<input value="${rows[rIdx][nextKey]}" onblur="updateMathValue(${dIdx},${rIdx},'${nextKey}',this.value)">`;
             tr.appendChild(tdPrice);
         }
     }
 
-    // 核心功能：填充时，金额 p1 跟随 交通详情 t1 一起填下去
+    window.updateMathValue = function(dIdx, rIdx, key, val) {
+        const result = parseMath(val);
+        window.trips[window.activeId].days[dIdx].rows[rIdx][key] = result;
+        renderTable(); // 必须重绘以显示计算结果
+        window.saveToCloud();
+    };
+
     window.doFill联动 = function(dIdx, rIdx, key, pKey) {
         const day = window.trips[window.activeId].days[dIdx];
         const val = day.rows[rIdx][key];
         const price = day.rows[rIdx][pKey];
         if (!val) return;
-
         for (let i = rIdx + 1; i < day.rows.length; i++) {
-            if (day.rows[i][key] && day.rows[i][key].trim() !== "") break; // 遇内容即停
+            if (day.rows[i][key] && day.rows[i][key].trim() !== "") break;
             day.rows[i][key] = val;
-            if(pKey) day.rows[i][pKey] = price; // 同步填充金额
+            if(pKey) day.rows[i][pKey] = price;
         }
         renderTable(); window.saveToCloud();
     };
@@ -205,7 +217,6 @@
         trip.days.forEach(day => {
             day.rows.forEach((row, rIdx) => {
                 p2 += Number(row.p2) || 0; p4 += Number(row.p4) || 0;
-                // 联动列统计逻辑：合并块内只算一次金额
                 if (rIdx === 0 || row.t1 === "" || row.t1 !== day.rows[rIdx-1].t1) p1 += Number(row.p1) || 0;
                 if (rIdx === 0 || row.h_t === "" || row.h_t !== day.rows[rIdx-1].h_t) p3 += Number(row.p3) || 0;
             });
@@ -217,7 +228,6 @@
         document.getElementById('sum-all').innerText = '￥' + (p1+p2+p3+p4).toLocaleString();
     };
 
-    // 基础管理函数
     window.updateDayDate = (dIdx, val) => { window.trips[window.activeId].days[dIdx].date = val; window.saveToCloud(); };
     window.addTrip = () => { const n = prompt("行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}]}; window.saveToCloud(); loadTrip(id); } };
     window.loadTrip = (id) => { window.activeId = id; renderSidebar(); renderTable(); document.getElementById('content-area').style.display='block'; };

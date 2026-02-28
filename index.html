@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v36.5 - Full Merge</title>
+    <title>私人旅行高级工作台 v36.6 - Day Distinction</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -84,39 +84,28 @@
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border-color); }
         table { border-collapse: collapse; width: 100%; min-width: 1100px; font-size: 13px; table-layout: fixed; }
         th { background: #f8fafc; color: #64748b; font-weight: 600; padding: 12px 8px; border: 1px solid var(--border-color); font-size: 12px; }
+        
+        /* 表格基础行 */
         td { border: 1px solid var(--border-color); height: 44px; position: relative; }
         
+        /* 核心优化：天数区分底色 */
+        .day-odd { background-color: #ffffff; }
+        .day-even { background-color: #f8fafc; } /* 偶数天带一点极浅灰蓝 */
+        
+        /* 每一天开始的第一行加粗上边框 */
+        .day-start { border-top: 2px solid #cbd5e1 !important; }
+
         input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; outline: none; font-size: 13px; color: var(--text-main); }
-        input:focus { background: #f0f7ff; }
+        input:focus { background: rgba(59, 130, 246, 0.05); }
         input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 
-        /* 行间插入按钮 */
         .row-insert-btn {
-            position: absolute;
-            bottom: -10px;
-            right: 0px;
-            z-index: 10;
-            width: 20px;
-            height: 20px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 14px;
-            cursor: pointer;
-            opacity: 0;
-            transition: 0.2s;
-            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            position: absolute; bottom: -10px; right: 0px; z-index: 10; width: 20px; height: 20px; background: var(--accent); color: white; border: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; cursor: pointer; opacity: 0; transition: 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
         tr:hover .row-insert-btn { opacity: 1; }
         .row-insert-btn:hover { transform: scale(1.2); background: #2563eb; }
 
         .btn-day { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 20px; }
-        
-        /* 快捷填充按钮 */
         .fill-btn { position: absolute; right: 2px; top: 2px; cursor: pointer; background: white; border: 1px solid #3b82f6; color: #3b82f6; border-radius: 4px; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; z-index: 5; transition: 0.2s; }
         td:hover .fill-btn { opacity: 1; }
     </style>
@@ -168,8 +157,6 @@
 </div>
 
 <script>
-    // --- 渲染逻辑 ---
-
     function renderTable() {
         const tbody = document.getElementById('table-body');
         tbody.innerHTML = '';
@@ -177,22 +164,28 @@
         if(!trip) return;
 
         trip.days.forEach((day, dIdx) => {
+            const dayClass = (dIdx % 2 === 0) ? 'day-odd' : 'day-even';
+            
             day.rows.forEach((row, rIdx) => {
                 const tr = document.createElement('tr');
-                
-                // 1. 天数 & 日期 (按天合并)
+                tr.className = dayClass;
+                // 每一天开始的第一行添加特殊类用于画分割线
+                if (rIdx === 0) tr.classList.add('day-start');
+
+                // 1. 天数 & 日期
                 if (rIdx === 0) {
-                    tr.innerHTML += `<td rowspan="${day.rows.length}" style="background:#f8fafc; text-align:center; font-weight:800; color:#94a3b8;">D${dIdx + 1}</td>`;
-                    tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="window.trips['${window.activeId}'].days[${dIdx}].date=this.value;window.saveToCloud()"></td>`;
+                    tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center; font-weight:800; color:${dIdx % 2 === 0 ? '#64748b' : '#475569'}; background: inherit;">D${dIdx + 1}</td>`;
+                    tr.innerHTML += `<td rowspan="${day.rows.length}" style="background: inherit;"><input type="date" value="${day.date}" onchange="window.trips['${window.activeId}'].days[${dIdx}].date=this.value;window.saveToCloud()"></td>`;
                 }
                 
-                // 2. 所在地 (智能合并)
-                renderMergedCell(tr, day.rows, rIdx, dIdx, 'loc', '#f0f9ff');
+                // 2. 所在地 (底色根据奇偶天调整)
+                const locColor = (dIdx % 2 === 0) ? '#f0f9ff' : '#e0f2fe';
+                renderMergedCell(tr, day.rows, rIdx, dIdx, 'loc', locColor);
 
-                // 3. 时间 (智能合并 - 新增)
-                renderMergedCell(tr, day.rows, rIdx, dIdx, 'time', '#ffffff');
+                // 3. 时间
+                renderMergedCell(tr, day.rows, rIdx, dIdx, 'time', 'inherit');
 
-                // 4. 交通 & 行程 (普通列)
+                // 4. 交通 & 行程
                 tr.innerHTML += `
                     <td><input value="${row.t1}" onblur="updateVal(${dIdx},${rIdx},'t1',this.value)"></td>
                     <td><input type="number" value="${row.p1}" onblur="updateVal(${dIdx},${rIdx},'p1',this.value)"></td>
@@ -200,14 +193,15 @@
                     <td><input type="number" value="${row.p2}" onblur="updateVal(${dIdx},${rIdx},'p2',this.value)"></td>
                 `;
 
-                // 5. 酒店 (智能合并)
-                renderMergedCell(tr, day.rows, rIdx, dIdx, 'h_t', '#fefce8');
+                // 5. 酒店
+                const hotelColor = (dIdx % 2 === 0) ? '#fefce8' : '#fef9c3';
+                renderMergedCell(tr, day.rows, rIdx, dIdx, 'h_t', hotelColor);
                 if (shouldRender(day.rows, rIdx, 'h_t')) {
                    const span = getSpan(day.rows, rIdx, 'h_t');
-                   tr.innerHTML += `<td rowspan="${span}" style="background:#fefce8"><input type="number" value="${row.p3}" onblur="updateVal(${dIdx},${rIdx},'p3',this.value)"></td>`;
+                   tr.innerHTML += `<td rowspan="${span}" style="background:${hotelColor}"><input type="number" value="${row.p3}" onblur="updateVal(${dIdx},${rIdx},'p3',this.value)"></td>`;
                 }
 
-                // 6. 餐饮 & 删除 (插入按钮放这里)
+                // 6. 餐饮 & 删除
                 tr.innerHTML += `
                     <td><input value="${row.t4}" onblur="updateVal(${dIdx},${rIdx},'t4',this.value)"></td>
                     <td><input type="number" value="${row.p4}" onblur="updateVal(${dIdx},${rIdx},'p4',this.value)"></td>
@@ -222,7 +216,6 @@
         updateStats();
     }
 
-    // 封装通用合并渲染函数
     function renderMergedCell(tr, rows, rIdx, dIdx, key, bgColor) {
         if (shouldRender(rows, rIdx, key)) {
             const span = getSpan(rows, rIdx, key);
@@ -235,10 +228,7 @@
 
     function shouldRender(rows, rIdx, key) {
         if (rIdx === 0) return true;
-        const currentVal = rows[rIdx][key];
-        const prevVal = rows[rIdx-1][key];
-        // 如果当前值不为空且等于前一个值，则不渲染（被合并了）
-        return !(currentVal !== "" && currentVal === prevVal);
+        return !(rows[rIdx][key] !== "" && rows[rIdx][key] === rows[rIdx-1][key]);
     }
 
     function getSpan(rows, rIdx, key) {
@@ -251,17 +241,12 @@
         return span;
     }
 
-    // --- 核心逻辑 ---
-    function insertRow(dIdx, rIdx) {
-        window.trips[window.activeId].days[dIdx].rows.splice(rIdx + 1, 0, { loc: '', time: '', t1: '', p1: 0, t2: '', p2: 0, h_t: '', p3: 0, t4: '', p4: 0 });
-        renderTable();
-        window.saveToCloud();
-    }
     function updateVal(dIdx, rIdx, key, val) {
         window.trips[window.activeId].days[dIdx].rows[rIdx][key] = val;
         if(['loc', 'h_t', 'time'].includes(key)) renderTable(); 
         window.saveToCloud();
     }
+
     function fillDown(dIdx, rIdx, key) {
         const rows = window.trips[window.activeId].days[dIdx].rows;
         const val = rows[rIdx][key];
@@ -272,6 +257,8 @@
         renderTable();
         window.saveToCloud();
     }
+
+    // --- 基础管理逻辑 ---
     function renderSidebar() {
         const list = document.getElementById('trip-list');
         list.innerHTML = '';
@@ -288,6 +275,7 @@
     function loadTrip(id) { window.activeId = id; renderSidebar(); renderTable(); document.getElementById('content-area').style.display = 'block'; }
     function deleteTrip(id, e) { e.stopPropagation(); if(confirm("删除此行程？")) { delete window.trips[id]; if(window.activeId === id) window.activeId = null; window.saveToCloud(); } }
     function addDay() { window.trips[window.activeId].days.push({ date: '', rows: [{ loc: '地点', time: '09:00', t1: '', p1: 0, t2: '', p2: 0, h_t: '酒店', p3: 0, t4: '', p4: 0 }] }); window.saveToCloud(); }
+    function insertRow(dIdx, rIdx) { window.trips[window.activeId].days[dIdx].rows.splice(rIdx + 1, 0, { loc: '', time: '', t1: '', p1: 0, t2: '', p2: 0, h_t: '', p3: 0, t4: '', p4: 0 }); renderTable(); window.saveToCloud(); }
     function delRow(dIdx, rIdx) { window.trips[window.activeId].days[dIdx].rows.splice(rIdx, 1); if(window.trips[window.activeId].days[dIdx].rows.length === 0) window.trips[window.activeId].days.splice(dIdx, 1); renderTable(); window.saveToCloud(); }
     function updateStats() {
         let p1=0, p2=0, p3=0, p4=0; const trip = window.trips[window.activeId]; if(!trip) return;

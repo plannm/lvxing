@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v36.3 - Clean UI</title>
+    <title>私人旅行高级工作台 v36.4 - Context Insert</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -73,7 +73,6 @@
         #main { flex: 1; overflow: auto; padding: 30px; }
         .content-container { max-width: 1400px; margin: 0 auto; }
 
-        /* 看板 */
         .summary-bar { display: flex; gap: 15px; margin-bottom: 25px; }
         .stat-card { background: white; flex: 1; padding: 15px 20px; border-radius: var(--radius); border: 1px solid var(--border-color); }
         .stat-card .label { font-size: 11px; color: #94a3b8; font-weight: 600; margin-bottom: 4px; display: block; }
@@ -82,45 +81,40 @@
         .stat-card.highlight .label { color: #888; }
         .stat-card.highlight .value { color: #ffd700; font-size: 22px; }
 
-        /* 表格样式优化 */
+        /* 表格样式 */
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); box-shadow: 0 10px 25px rgba(0,0,0,0.05); border: 1px solid var(--border-color); }
         table { border-collapse: collapse; width: 100%; min-width: 1100px; font-size: 13px; table-layout: fixed; }
         th { background: #f8fafc; color: #64748b; font-weight: 600; padding: 12px 8px; border: 1px solid var(--border-color); font-size: 12px; }
-        td { border: 1px solid var(--border-color); height: 44px; position: relative; transition: background 0.2s; }
+        td { border: 1px solid var(--border-color); height: 44px; position: relative; }
         
         input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; outline: none; font-size: 13px; color: var(--text-main); }
-        input:focus { background: #f0f7ff; }
-
-        /* --- 核心优化 1：去掉数字输入框箭头 --- */
-        input[type="number"]::-webkit-inner-spin-button,
-        input[type="number"]::-webkit-outer-spin-button {
-            -webkit-appearance: none;
-            margin: 0;
-        }
+        input[type="number"]::-webkit-inner-spin-button, input[type="number"]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
         input[type="number"] { -moz-appearance: textfield; }
 
-        /* --- 核心优化 2：隐藏式加行按钮 --- */
-        .day-cell { text-align: center; background: #f8fafc; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; cursor: default; }
-        .day-label { font-weight: 800; color: #94a3b8; font-size: 14px; }
-        
-        .btn-add-row-hidden {
+        /* --- 核心优化：行间插入按钮 --- */
+        .row-insert-btn {
             position: absolute;
-            bottom: 4px;
+            bottom: -10px;
             left: 50%;
             transform: translateX(-50%);
-            opacity: 0; /* 默认隐藏 */
+            z-index: 10;
+            width: 20px;
+            height: 20px;
             background: var(--accent);
             color: white;
             border: none;
-            border-radius: 4px;
-            padding: 2px 8px;
-            font-size: 10px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
             cursor: pointer;
+            opacity: 0;
             transition: 0.2s;
-            white-space: nowrap;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        td:hover .btn-add-row-hidden { opacity: 1; bottom: 8px; } /* 悬浮时显现并轻微上浮 */
-        .btn-add-row-hidden:hover { background: var(--accent-hover); }
+        tr:hover .row-insert-btn { opacity: 1; bottom: -10px; }
+        .row-insert-btn:hover { transform: translateX(-50%) scale(1.2); background: #2563eb; }
 
         .btn-day { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 20px; }
         .fill-btn { position: absolute; right: 2px; top: 2px; cursor: pointer; background: white; border: 1px solid #3b82f6; color: #3b82f6; border-radius: 4px; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; z-index: 5; }
@@ -174,7 +168,7 @@
 </div>
 
 <script>
-    // --- 渲染逻辑 ---
+    // --- 核心逻辑 ---
 
     function renderTable() {
         const tbody = document.getElementById('table-body');
@@ -185,16 +179,17 @@
         trip.days.forEach((day, dIdx) => {
             day.rows.forEach((row, rIdx) => {
                 const tr = document.createElement('tr');
+                
+                // 天数和日期列
                 if (rIdx === 0) {
-                    // 优化：只有在鼠标移入 td 时才显示底部的“+行”按钮
                     tr.innerHTML += `
-                        <td rowspan="${day.rows.length}" style="background:#f8fafc; vertical-align:middle; text-align:center;">
-                            <div class="day-label">D${dIdx + 1}</div>
-                            <button class="btn-add-row-hidden" onclick="addRow(${dIdx})">+ 行</button>
+                        <td rowspan="${day.rows.length}" style="background:#f8fafc; vertical-align:middle; text-align:center; font-weight:800; color:#94a3b8; font-size:14px">
+                            D${dIdx + 1}
                         </td>`;
                     tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="window.trips['${window.activeId}'].days[${dIdx}].date=this.value;window.saveToCloud()"></td>`;
                 }
                 
+                // 城市列
                 let locSpan = 1;
                 if (rIdx > 0 && day.rows[rIdx-1].loc !== "" && day.rows[rIdx-1].loc === row.loc) {} 
                 else {
@@ -202,6 +197,7 @@
                     tr.innerHTML += `<td rowspan="${locSpan}" style="background:#f0f9ff"><input value="${row.loc}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)"><span class="fill-btn" onclick="fillDown(${dIdx},${rIdx},'loc')">↓</span></td>`;
                 }
 
+                // 时间、交通、行程
                 tr.innerHTML += `
                     <td><input value="${row.time}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>
                     <td><input value="${row.t1}" onblur="updateVal(${dIdx},${rIdx},'t1',this.value)"></td>
@@ -210,6 +206,7 @@
                     <td><input type="number" value="${row.p2}" onblur="updateVal(${dIdx},${rIdx},'p2',this.value)"></td>
                 `;
 
+                // 酒店合并
                 let hotelSpan = 1;
                 if (rIdx > 0 && day.rows[rIdx-1].h_t !== "" && day.rows[rIdx-1].h_t === row.h_t) {} 
                 else {
@@ -217,10 +214,15 @@
                     tr.innerHTML += `<td rowspan="${hotelSpan}" style="background:#fefce8"><input value="${row.h_t}" onblur="updateVal(${dIdx},${rIdx},'h_t',this.value)"><span class="fill-btn" onclick="fillDown(${dIdx},${rIdx},'h_t')">↓</span></td><td rowspan="${hotelSpan}" style="background:#fefce8"><input type="number" value="${row.p3}" onblur="updateVal(${dIdx},${rIdx},'p3',this.value)"></td>`;
                 }
 
+                // 餐饮和删除
+                // 在最后一列 td 中增加一个绝对定位的“插入按钮”
                 tr.innerHTML += `
                     <td><input value="${row.t4}" onblur="updateVal(${dIdx},${rIdx},'t4',this.value)"></td>
                     <td><input type="number" value="${row.p4}" onblur="updateVal(${dIdx},${rIdx},'p4',this.value)"></td>
-                    <td style="text-align:center;cursor:pointer;color:#cbd5e1" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'" onclick="delRow(${dIdx},${rIdx})">✕</td>
+                    <td style="text-align:center;cursor:pointer;color:#cbd5e1" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#cbd5e1'" onclick="delRow(${dIdx},${rIdx})">
+                        ✕
+                        <button class="row-insert-btn" onclick="event.stopPropagation(); insertRow(${dIdx}, ${rIdx})" title="在此行下方插入新行">+</button>
+                    </td>
                 `;
                 tbody.appendChild(tr);
             });
@@ -228,7 +230,16 @@
         updateStats();
     }
 
-    // --- 核心逻辑 (保持 Firebase 链接) ---
+    // 新增：在指定位置插入行
+    function insertRow(dIdx, rIdx) {
+        const newRow = { loc: '', time: '', t1: '', p1: 0, t2: '', p2: 0, h_t: '', p3: 0, t4: '', p4: 0 };
+        // 使用 splice 在数组中间插入
+        window.trips[window.activeId].days[dIdx].rows.splice(rIdx + 1, 0, newRow);
+        renderTable();
+        window.saveToCloud();
+    }
+
+    // --- 其他逻辑保持不变 ---
     function renderSidebar() {
         const list = document.getElementById('trip-list');
         list.innerHTML = '';
@@ -245,7 +256,6 @@
     function loadTrip(id) { window.activeId = id; renderSidebar(); renderTable(); document.getElementById('content-area').style.display = 'block'; }
     function deleteTrip(id, e) { e.stopPropagation(); if(confirm("删除此行程？")) { delete window.trips[id]; if(window.activeId === id) window.activeId = null; window.saveToCloud(); } }
     function addDay() { window.trips[window.activeId].days.push({ date: '', rows: [{ loc: '地点', time: '09:00', t1: '', p1: 0, t2: '', p2: 0, h_t: '酒店', p3: 0, t4: '', p4: 0 }] }); window.saveToCloud(); }
-    function addRow(dIdx) { window.trips[window.activeId].days[dIdx].rows.push({ loc: '', time: '', t1: '', p1: 0, t2: '', p2: 0, h_t: '', p3: 0, t4: '', p4: 0 }); window.saveToCloud(); }
     function updateVal(dIdx, rIdx, key, val) { window.trips[window.activeId].days[dIdx].rows[rIdx][key] = val; if(['loc', 'h_t'].includes(key)) renderTable(); window.saveToCloud(); }
     function fillDown(dIdx, rIdx, key) { const rows = window.trips[window.activeId].days[dIdx].rows; const val = rows[rIdx][key]; for(let i = rIdx + 1; i < rows.length; i++) { if(rows[i][key].trim() === "") rows[i][key] = val; else break; } renderTable(); window.saveToCloud(); }
     function delRow(dIdx, rIdx) { window.trips[window.activeId].days[dIdx].rows.splice(rIdx, 1); if(window.trips[window.activeId].days[dIdx].rows.length === 0) window.trips[window.activeId].days.splice(dIdx, 1); renderTable(); window.saveToCloud(); }

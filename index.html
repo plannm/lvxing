@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v37.7 - 账目校准版</title>
+    <title>私人旅行高级工作台 v37.8 - 极简清爽版</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -28,7 +28,7 @@
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            document.getElementById('syncStatus').innerText = "☁️ 数据已校准并同步";
+            document.getElementById('syncStatus').innerText = "☁️ 界面已优化并同步";
             renderSidebar();
             if (window.activeId && window.trips[window.activeId]) renderTable();
             else if (Object.keys(window.trips).length > 0 && !window.activeId) loadTrip(Object.keys(window.trips)[0]);
@@ -47,20 +47,20 @@
         .trip-item.active { background: var(--accent); color: white; font-weight: 600; }
         #main { flex: 1; overflow: auto; padding: 30px; }
         
-        /* 统计栏样式 */
         .summary-bar { display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; }
         .stat-card { background: white; flex: 1; min-width: 140px; padding: 15px 18px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .stat-card.grand-total { background: #2563eb; color: white; border: none; flex: 1.5; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+        .stat-card.grand-total { background: #1e293b; color: white; border: none; flex: 1.5; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .stat-card .label { font-size: 11px; color: #94a3b8; font-weight: 600; margin-bottom: 4px; display: block; }
-        .grand-total .label { color: #bfdbfe; }
+        .grand-total .label { color: var(--accent); }
         .stat-card .value { font-size: 18px; font-weight: 700; }
-        .grand-total .value { font-size: 22px; }
 
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         table { border-collapse: collapse; width: 100%; min-width: 1100px; font-size: 13px; table-layout: fixed; }
         th { background: #f8fafc; color: #64748b; padding: 10px 8px; border: 1px solid var(--border-color); font-size: 11px; }
         td { border: 1px solid var(--border-color); height: 44px; position: relative; background: white; }
-        input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; outline: none; }
+        input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; outline: none; transition: 0.2s; }
+        input:focus { background: #f1f5f9; }
+        
         .day-start { border-top: 2px solid #cbd5e1 !important; }
         .fill-btn { position: absolute; right: 2px; top: 2px; cursor: pointer; background: white; border: 1px solid #3b82f6; color: #3b82f6; border-radius: 4px; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; z-index: 5; }
         td:hover .fill-btn { opacity: 1; }
@@ -71,17 +71,17 @@
 <div id="sidebar">
     <div class="side-header"><span>✈️ 行程管理</span><button onclick="addTrip()" style="background:var(--accent);border:none;color:white;width:28px;border-radius:6px;cursor:pointer">+</button></div>
     <div id="trip-list"></div>
-    <div style="padding:15px; background:#0f172a; font-size:11px; color:#64748b" id="syncStatus">📡 正在同步...</div>
+    <div style="padding:15px; background:#0f172a; font-size:11px; color:#64748b" id="syncStatus">📡 载入中...</div>
 </div>
 
 <div id="main">
     <div id="content-area" style="display:none">
         <div class="summary-bar">
-            <div class="stat-card grand-total"><span class="label">全行程总预算</span><span class="value" id="sum-grand">￥0</span></div>
-            <div class="stat-card"><span class="label">交通费总计</span><span class="value" id="sum-p1">￥0</span></div>
-            <div class="stat-card"><span class="label">项目费总计</span><span class="value" id="sum-p2">￥0</span></div>
-            <div class="stat-card"><span class="label">酒店费总计</span><span class="value" id="sum-p3">￥0</span></div>
-            <div class="stat-card"><span class="label">餐饮费总计</span><span class="value" id="sum-p4">￥0</span></div>
+            <div class="stat-card grand-total"><span class="label">全行程预算总计</span><span class="value" id="sum-grand">￥0</span></div>
+            <div class="stat-card"><span class="label">交通</span><span class="value" id="sum-p1">￥0</span></div>
+            <div class="stat-card"><span class="label">项目</span><span class="value" id="sum-p2">￥0</span></div>
+            <div class="stat-card"><span class="label">酒店</span><span class="value" id="sum-p3">￥0</span></div>
+            <div class="stat-card"><span class="label">餐饮</span><span class="value" id="sum-p4">￥0</span></div>
         </div>
         
         <button onclick="addDay()" style="background:#10b981; color:white; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:600; margin-bottom:20px;">+ 新增日期</button>
@@ -92,8 +92,8 @@
                     <tr>
                         <th rowspan="2" style="width:45px">天数</th><th rowspan="2" style="width:120px">日期</th>
                         <th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th>
-                        <th colspan="2">交通 (↓分摊)</th><th colspan="2">行程项目</th>
-                        <th colspan="2">酒店 (↓按晚平摊)</th><th colspan="2">餐饮</th>
+                        <th colspan="2">交通</th><th colspan="2">行程项目</th>
+                        <th colspan="2">住宿酒店</th><th colspan="2">餐饮</th>
                         <th rowspan="2" style="width:40px">删</th>
                     </tr>
                     <tr>
@@ -108,8 +108,11 @@
 </div>
 
 <script>
+    // 定义一个空行模板
+    const emptyRow = () => ({ loc: '', time: '', t1: '', p1: '', t2: '', p2: '', h_t: '', p3: '', t4: '', p4: '' });
+
     function parseMath(str) {
-        if (!str || typeof str !== 'string') return str;
+        if (!str || str === "") return "";
         if (!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str)) return str;
         try { 
             const res = new Function(`return ${str}`)(); 
@@ -131,25 +134,29 @@
                     tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center; font-weight:bold; background:#f8fafc">D${dIdx+1}</td>`;
                     tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx}, this.value)"></td>`;
                 }
+
                 renderCell(tr, dIdx, rIdx, 'loc', (dIdx%2==0?'#f0f9ff':'#e0f2fe'), true);
-                tr.innerHTML += `<td><input value="${row.time}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
+                tr.innerHTML += `<td><input value="${row.time || ''}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
+                
                 renderCell(tr, dIdx, rIdx, 't1', 'white', true, 'p1');
-                tr.innerHTML += `<td><input value="${row.t2}" onblur="updateVal(${dIdx},${rIdx},'t2',this.value)"></td>`;
-                tr.innerHTML += `<td><input value="${row.p2}" onblur="updateMath(${dIdx},${rIdx},'p2',this.value)"></td>`;
+                tr.innerHTML += `<td><input value="${row.t2 || ''}" onblur="updateVal(${dIdx},${rIdx},'t2',this.value)"></td>`;
+                tr.innerHTML += `<td><input value="${row.p2 || ''}" onblur="updateMath(${dIdx},${rIdx},'p2',this.value)"></td>`;
+
                 renderCell(tr, dIdx, rIdx, 'h_t', (dIdx%2==0?'#fefce8':'#fef9c3'), true, 'p3');
-                tr.innerHTML += `<td><input value="${row.t4}" onblur="updateVal(${dIdx},${rIdx},'t4',this.value)"></td>`;
-                tr.innerHTML += `<td><input value="${row.p4}" onblur="updateMath(${dIdx},${rIdx},'p4',this.value)"></td>`;
+
+                tr.innerHTML += `<td><input value="${row.t4 || ''}" onblur="updateVal(${dIdx},${rIdx},'t4',this.value)"></td>`;
+                tr.innerHTML += `<td><input value="${row.p4 || ''}" onblur="updateMath(${dIdx},${rIdx},'p4',this.value)"></td>`;
+
                 tr.innerHTML += `<td style="text-align:center; cursor:pointer; color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕</td>`;
                 tbody.appendChild(tr);
             });
         });
-        updateStats(); // 渲染完后立即计算
+        updateStats();
     }
 
     function renderCell(tr, dIdx, rIdx, key, bg, hasFill, pKey) {
         const rows = window.trips[window.activeId].days[dIdx].rows;
         const val = rows[rIdx][key] || "";
-        // 合并判断逻辑：如果是同名格，则不渲染（视觉隐藏）
         if (rIdx > 0 && val !== "" && val === rows[rIdx-1][key]) return;
 
         let span = 1;
@@ -161,7 +168,9 @@
         const td = document.createElement('td');
         if (span > 1) td.rowSpan = span;
         td.style.background = bg;
-        td.innerHTML = `<input value="${val}" onblur="updateVal(${dIdx},${rIdx},'${key}',this.value)">`;
+        // 核心修改：如果是 0 则显示为空
+        const displayVal = val === 0 ? "" : val;
+        td.innerHTML = `<input value="${displayVal}" onblur="updateVal(${dIdx},${rIdx},'${key}',this.value)">`;
         if (hasFill) td.innerHTML += `<span class="fill-btn" onclick="smartFill联动(${dIdx},${rIdx},'${key}','${pKey}')">↓</span>`;
         tr.appendChild(td);
 
@@ -169,34 +178,24 @@
             const tdP = document.createElement('td');
             if (span > 1) tdP.rowSpan = span;
             tdP.style.background = bg;
-            tdP.innerHTML = `<input value="${rows[rIdx][pKey]}" onblur="updateMath(${dIdx},${rIdx},'${pKey}',this.value)">`;
+            const pVal = (rows[rIdx][pKey] === 0 || rows[rIdx][pKey] === "0") ? "" : rows[rIdx][pKey];
+            tdP.innerHTML = `<input value="${pVal || ''}" onblur="updateMath(${dIdx},${rIdx},'${pKey}',this.value)">`;
             tr.appendChild(tdP);
         }
     }
 
-    // --- 核心修正：视觉对齐统计引擎 ---
     window.updateStats = () => {
         let p1=0, p2=0, p3=0, p4=0;
         const trip = window.trips[window.activeId];
         if(!trip) return;
-
         trip.days.forEach(day => {
             day.rows.forEach((row, rIdx) => {
-                // 交通 (p1) 只有在它是合并框的首行（或者没合并）时才统计
-                if (rIdx === 0 || row.t1 === "" || row.t1 !== day.rows[rIdx-1].t1) {
-                    p1 += Number(row.p1) || 0;
-                }
-                // 项目 (p2) 逐行统计
+                if (rIdx === 0 || row.t1 === "" || row.t1 !== day.rows[rIdx-1].t1) p1 += Number(row.p1) || 0;
                 p2 += Number(row.p2) || 0;
-                // 酒店 (p3) 只有在合并框首行统计
-                if (rIdx === 0 || row.h_t === "" || row.h_t !== day.rows[rIdx-1].h_t) {
-                    p3 += Number(row.p3) || 0;
-                }
-                // 餐饮 (p4) 逐行统计
+                if (rIdx === 0 || row.h_t === "" || row.h_t !== day.rows[rIdx-1].h_t) p3 += Number(row.p3) || 0;
                 p4 += Number(row.p4) || 0;
             });
         });
-
         const fmt = (v) => '￥' + v.toLocaleString(undefined, {minimumFractionDigits: 2});
         document.getElementById('sum-p1').innerText = fmt(p1);
         document.getElementById('sum-p2').innerText = fmt(p2);
@@ -205,11 +204,14 @@
         document.getElementById('sum-grand').innerText = fmt(p1 + p2 + p3 + p4);
     };
 
-    // 其他原有功能逻辑
     window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; if(['loc','t1','h_t'].includes(k)) renderTable(); window.saveToCloud(); };
-    window.updateMath = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=parseMath(v); updateStats(); window.saveToCloud(); };
+    window.updateMath = (d,r,k,v) => { 
+        const res = parseMath(v);
+        window.trips[window.activeId].days[d].rows[r][k] = (res === 0) ? "" : res; 
+        renderTable(); window.saveToCloud(); 
+    };
     window.updateDayDate = (d,v) => { window.trips[window.activeId].days[d].date=v; window.saveToCloud(); };
-    window.addTrip = () => { const n=prompt("行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'09:00',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}]}; window.saveToCloud(); loadTrip(id); } };
+    window.addTrip = () => { const n=prompt("行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[emptyRow()]}]}; window.saveToCloud(); loadTrip(id); } };
     window.loadTrip = (id) => { window.activeId=id; renderSidebar(); renderTable(); document.getElementById('content-area').style.display='block'; };
     window.renderSidebar = () => {
         const l = document.getElementById('trip-list'); l.innerHTML = '';
@@ -218,11 +220,11 @@
             d.innerText = "📍 " + window.trips[id].name; d.onclick = () => loadTrip(id); l.appendChild(d);
         });
     };
-    window.addDay = () => { window.trips[window.activeId].days.push({date:'', rows:[{loc:'',time:'09:00',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}); renderTable(); window.saveToCloud(); };
+    window.addDay = () => { window.trips[window.activeId].days.push({date:'', rows:[emptyRow()]}); renderTable(); window.saveToCloud(); };
     window.delRow = (d,r) => { window.trips[window.activeId].days[d].rows.splice(r,1); if(window.trips[window.activeId].days[d].rows.length===0) window.trips[window.activeId].days.splice(d,1); renderTable(); window.saveToCloud(); };
     window.smartFill联动 = function(dIdx, rIdx, key, pKey) {
         const trip = window.trips[window.activeId];
-        const rawInput = trip.days[dIdx].rows[rIdx][pKey] || "0";
+        const rawInput = trip.days[dIdx].rows[rIdx][pKey] || "";
         const contentName = trip.days[dIdx].rows[rIdx][key];
         if(!contentName) return;
         let involvedDayIndices = [dIdx];
@@ -238,9 +240,10 @@
         let dayCount = involvedDayIndices.length;
         let payDayCount = dayCount;
         if (key === 'h_t' && dayCount > 1) {
-            if (confirm("按“晚数”平摊请点确定（最后一天不收钱）\n按“天数”平摊请点取消（每天均计费）")) payDayCount = dayCount - 1;
+            if (confirm("按“晚数”平摊请点确定（最后一天不计费）\n按“天数”平摊请点取消（每天均计费）")) payDayCount = dayCount - 1;
         }
         let totalSum = parseMath(rawInput.toString());
+        if (totalSum === "") totalSum = 0;
         let per = Math.floor((totalSum / payDayCount) * 100) / 100;
         let last = (totalSum - (per * (Math.max(0, payDayCount - 1)))).toFixed(2);
         involvedDayIndices.forEach((dIdxCur, seq) => {
@@ -249,8 +252,9 @@
                     if (row[key] === "" || row[key] === contentName) {
                         row[key] = contentName;
                         if (crIdx === 0 || (dIdxCur === dIdx && crIdx === rIdx)) {
-                            row[pKey] = (seq === payDayCount - 1) ? Number(last) : (seq < payDayCount ? per : 0);
-                        } else { row[pKey] = 0; }
+                            let val = (seq === payDayCount - 1) ? Number(last) : (seq < payDayCount ? per : 0);
+                            row[pKey] = val === 0 ? "" : val;
+                        } else { row[pKey] = ""; }
                     }
                 }
             });

@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v37.3 - 精确晚数版</title>
+    <title>私人旅行高级工作台 v37.4 - 精确范围版</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -28,7 +28,7 @@
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            document.getElementById('syncStatus').innerText = "☁️ 数据同步完成";
+            document.getElementById('syncStatus').innerText = "☁️ 云端已同步";
             renderSidebar();
             if (window.activeId && window.trips[window.activeId]) renderTable();
             else if (Object.keys(window.trips).length > 0 && !window.activeId) loadTrip(Object.keys(window.trips)[0]);
@@ -38,7 +38,7 @@
     </script>
 
     <style>
-        :root { --sidebar-bg: #1e293b; --accent: #3b82f6; --bg-main: #f8fafc; --border-color: #e2e8f0; --text-main: #1e293b; --radius: 12px; }
+        :root { --sidebar-bg: #1e293b; --accent: #3b82f6; --bg-main: #f8fafc; --border-color: #e2e8f0; --radius: 12px; }
         body { font-family: 'Segoe UI', sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-main); overflow: hidden; }
         #sidebar { width: 260px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; flex-shrink: 0; }
         .side-header { padding: 24px 20px; font-size: 18px; font-weight: 700; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
@@ -67,16 +67,16 @@
 <div id="sidebar">
     <div class="side-header"><span>✈️ 旅行工作台</span><button onclick="addTrip()" style="cursor:pointer; background:var(--accent); border:none; color:white; width:24px; border-radius:4px">+</button></div>
     <div id="trip-list"></div>
-    <div id="syncStatus" style="padding:15px; background:#0f172a; font-size:11px; color:#64748b">📡 连接中...</div>
+    <div id="syncStatus" style="padding:15px; background:#0f172a; font-size:11px; color:#64748b">📡 同步中...</div>
 </div>
 
 <div id="main">
     <div id="content-area" style="display:none">
         <div class="summary-bar">
-            <div class="stat-card"><span class="label">交通总计</span><span class="value" id="sum-p1">￥0</span></div>
-            <div class="stat-card"><span class="label">项目总计</span><span class="value" id="sum-p2">￥0</span></div>
-            <div class="stat-card"><span class="label">酒店总计</span><span class="value" id="sum-p3">￥0</span></div>
-            <div class="stat-card"><span class="label">餐饮总计</span><span class="value" id="sum-p4">￥0</span></div>
+            <div class="stat-card"><span class="label">交通</span><span class="value" id="sum-p1">￥0</span></div>
+            <div class="stat-card"><span class="label">项目</span><span class="value" id="sum-p2">￥0</span></div>
+            <div class="stat-card"><span class="label">酒店</span><span class="value" id="sum-p3">￥0</span></div>
+            <div class="stat-card"><span class="label">餐饮</span><span class="value" id="sum-p4">￥0</span></div>
         </div>
         <button onclick="addDay()" style="background:#10b981; color:white; border:none; padding:10px 20px; border-radius:8px; cursor:pointer; margin-bottom:20px;">+ 新增日期</button>
         <div class="excel-box">
@@ -85,8 +85,8 @@
                     <tr>
                         <th rowspan="2" style="width:50px">天数</th><th rowspan="2" style="width:120px">日期</th>
                         <th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th>
-                        <th colspan="2">交通方式 (可算术)</th><th colspan="2">项目</th>
-                        <th colspan="2">住宿酒店 (按晚平摊)</th><th colspan="2">餐饮</th>
+                        <th colspan="2">交通 (可算术)</th><th colspan="2">项目</th>
+                        <th colspan="2">酒店 (按晚平摊)</th><th colspan="2">餐饮</th>
                         <th rowspan="2" style="width:40px">删</th>
                     </tr>
                     <tr>
@@ -142,6 +142,7 @@
     function renderCell(tr, dIdx, rIdx, key, bg, hasFill, pKey) {
         const rows = window.trips[window.activeId].days[dIdx].rows;
         const val = rows[rIdx][key] || "";
+        // 这里控制合并展示：同名且相邻才合并
         if (rIdx > 0 && val !== "" && val === rows[rIdx-1][key]) return;
         let span = 1;
         if (val !== "") {
@@ -164,64 +165,64 @@
         }
     }
 
-    // --- v37.3 核心改进：按“天”而非“行”计算分摊 ---
+    // --- v37.4 修复版：遇到有内容的格子立即停止填充 ---
     window.smartFill联动 = function(dIdx, rIdx, key, pKey) {
         const trip = window.trips[window.activeId];
         const rawInput = trip.days[dIdx].rows[rIdx][pKey] || "0";
-        const hotelName = trip.days[dIdx].rows[rIdx][key];
+        const contentName = trip.days[dIdx].rows[rIdx][key];
         
-        let affectedDays = [];
-        let cd = dIdx;
-        let startR = rIdx + 1;
+        if(!contentName) return;
 
-        // 1. 搜寻范围：跨天寻找空白格，直到名字被挡住
-        while(cd < trip.days.length) {
-            let dayObj = { index: cd, rows: [] };
-            for(let i = (cd === dIdx ? startR : 0); i < trip.days[cd].rows.length; i++){
-                if(trip.days[cd].rows[i][key] && trip.days[cd].rows[i][key].trim() !== "") { cd = 999; break; }
-                dayObj.rows.push(i);
+        let affectedDayData = [];
+        let stopSearch = false;
+
+        for (let cd = dIdx; cd < trip.days.length; cd++) {
+            if(stopSearch) break;
+            let dayObj = { index: cd, rowIndices: [] };
+            let startRow = (cd === dIdx) ? rIdx + 1 : 0;
+
+            for (let cr = startRow; cr < trip.days[cd].rows.length; cr++) {
+                // 【核心修改】：如果发现下方格子里已经有内容了，立即停止搜寻，保护已有数据
+                if (trip.days[cd].rows[cr][key] && trip.days[cd].rows[cr][key].trim() !== "") {
+                    stopSearch = true;
+                    break;
+                }
+                dayObj.rowIndices.push(cr);
             }
-            if(dayObj.rows.length > 0) affectedDays.push(dayObj);
-            cd++;
+            if (dayObj.rowIndices.length > 0) affectedDayData.push(dayObj);
         }
 
-        // 包含起始天
-        let allInvolvedDayIndices = [dIdx, ...affectedDays.map(d => d.index)];
-        let dayCount = allInvolvedDayIndices.length;
-        
-        // 2. 酒店逻辑判断
+        let allInvolvedDays = [dIdx, ...affectedDayData.map(d => d.index)];
+        let dayCount = allInvolvedDays.length;
         let payDayCount = dayCount;
-        if (key === 'h_t') {
-            const isNights = confirm("检测到酒店填充：\n横跨了 " + dayCount + " 天。\n\n点击【确定】：按“晚数”平摊（" + (dayCount-1) + " 晚，最后一天退房不收钱）\n点击【取消】：按“天数”平摊（" + dayCount + " 天全收费）");
+
+        if (key === 'h_t' && dayCount > 1) {
+            const isNights = confirm("检测到跨天填充：\n横跨了 " + dayCount + " 天。\n\n按【晚数】计算请点确定（最后一天不收钱）\n按【天数】计算请点取消（每天都收钱）");
             if (isNights) payDayCount = dayCount - 1;
         }
 
         let totalSum = parseMath(rawInput.toString());
-        if (payDayCount <= 0) return;
-
         let per = Math.floor((totalSum / payDayCount) * 100) / 100;
-        let last = (totalSum - (per * (payDayCount - 1))).toFixed(2);
+        let last = (totalSum - (per * (Math.max(0, payDayCount - 1)))).toFixed(2);
 
-        // 3. 应用数据：同一天内的行，首行给钱，其余行给0
-        allInvolvedDayIndices.forEach((dIdxCur, daySeq) => {
-            let dayData = trip.days[dIdxCur];
-            let isLastPayDay = (daySeq === payDayCount - 1);
-            let isAfterPayDay = (daySeq >= payDayCount);
-            
-            dayData.rows.forEach((row, rowIdxInDay) => {
-                // 如果是当前操作行以后的空白行，填入名字
-                if (!(dIdxCur === dIdx && rowIdxInDay <= rIdx)) {
-                    row[key] = hotelName;
-                }
+        // 应用数据
+        allInvolvedDays.forEach((dIdxCur, daySeq) => {
+            let isPayDay = daySeq < payDayCount;
+            let isLastPay = daySeq === payDayCount - 1;
 
-                // 金额逻辑：仅在每一天的第一行填入平摊金额
-                if (rowIdxInDay === 0 || (dIdxCur === dIdx && rowIdxInDay === rIdx)) {
-                    if (isAfterPayDay) row[pKey] = 0;
-                    else if (isLastPayDay) row[pKey] = Number(last);
-                    else row[pKey] = per;
-                } else {
-                    // 同一天内的其他行程行，金额设为 0（因为一天只收一次房费）
-                    row[pKey] = 0;
+            trip.days[dIdxCur].rows.forEach((row, rowIdxInDay) => {
+                // 仅修改属于本次填充范围内的行
+                let isInRange = (dIdxCur === dIdx && rowIdxInDay === rIdx) || 
+                                (affectedDayData.find(ad => ad.index === dIdxCur && ad.rowIndices.includes(rowIdxInDay)));
+                
+                if (isInRange) {
+                    row[key] = contentName;
+                    // 金额只写在每天的第一行（或者是当前操作行）
+                    if (rowIdxInDay === 0 || (dIdxCur === dIdx && rowIdxInDay === rIdx)) {
+                        row[pKey] = isLastPay ? Number(last) : (isPayDay ? per : 0);
+                    } else {
+                        row[pKey] = 0;
+                    }
                 }
             });
         });
@@ -241,7 +242,6 @@
         document.getElementById('sum-p3').innerText = '￥'+p3.toLocaleString();
         document.getElementById('sum-p4').innerText = '￥'+p4.toLocaleString();
     };
-
     window.updateDayDate = (d, v) => { window.trips[window.activeId].days[d].date = v; window.saveToCloud(); };
     window.addTrip = () => { const n = prompt("名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}]}; window.saveToCloud(); loadTrip(id); } };
     window.loadTrip = (id) => { window.activeId = id; renderSidebar(); renderTable(); document.getElementById('content-area').style.display='block'; };

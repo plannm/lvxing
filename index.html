@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v37.6 - 账目精确版</title>
+    <title>私人旅行高级工作台 v37.7 - 账目校准版</title>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
@@ -28,7 +28,7 @@
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            document.getElementById('syncStatus').innerText = "☁️ 数据已实时同步";
+            document.getElementById('syncStatus').innerText = "☁️ 数据已校准并同步";
             renderSidebar();
             if (window.activeId && window.trips[window.activeId]) renderTable();
             else if (Object.keys(window.trips).length > 0 && !window.activeId) loadTrip(Object.keys(window.trips)[0]);
@@ -40,28 +40,27 @@
     <style>
         :root { --sidebar-bg: #1e293b; --accent: #3b82f6; --bg-main: #f8fafc; --border-color: #e2e8f0; --radius: 12px; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-main); overflow: hidden; }
-        
         #sidebar { width: 260px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; flex-shrink: 0; }
         .side-header { padding: 24px 20px; font-size: 18px; font-weight: 700; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
         #trip-list { flex: 1; overflow-y: auto; padding: 10px 0; }
         .trip-item { padding: 14px 20px; cursor: pointer; color: #94a3b8; margin: 4px 12px; border-radius: 8px; transition: 0.2s; }
         .trip-item.active { background: var(--accent); color: white; font-weight: 600; }
-
         #main { flex: 1; overflow: auto; padding: 30px; }
+        
+        /* 统计栏样式 */
         .summary-bar { display: flex; gap: 12px; margin-bottom: 25px; flex-wrap: wrap; }
         .stat-card { background: white; flex: 1; min-width: 140px; padding: 15px 18px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .stat-card.total-card { background: #0f172a; color: white; border: none; }
+        .stat-card.grand-total { background: #2563eb; color: white; border: none; flex: 1.5; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
         .stat-card .label { font-size: 11px; color: #94a3b8; font-weight: 600; margin-bottom: 4px; display: block; }
-        .total-card .label { color: #3b82f6; }
+        .grand-total .label { color: #bfdbfe; }
         .stat-card .value { font-size: 18px; font-weight: 700; }
+        .grand-total .value { font-size: 22px; }
 
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
         table { border-collapse: collapse; width: 100%; min-width: 1100px; font-size: 13px; table-layout: fixed; }
         th { background: #f8fafc; color: #64748b; padding: 10px 8px; border: 1px solid var(--border-color); font-size: 11px; }
         td { border: 1px solid var(--border-color); height: 44px; position: relative; background: white; }
-        input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; outline: none; transition: 0.2s; }
-        input:focus { background: #eff6ff; }
-        
+        input { width: 100%; height: 100%; border: none; background: transparent; text-align: center; outline: none; }
         .day-start { border-top: 2px solid #cbd5e1 !important; }
         .fill-btn { position: absolute; right: 2px; top: 2px; cursor: pointer; background: white; border: 1px solid #3b82f6; color: #3b82f6; border-radius: 4px; width: 16px; height: 16px; font-size: 10px; display: flex; align-items: center; justify-content: center; opacity: 0; z-index: 5; }
         td:hover .fill-btn { opacity: 1; }
@@ -72,20 +71,20 @@
 <div id="sidebar">
     <div class="side-header"><span>✈️ 行程管理</span><button onclick="addTrip()" style="background:var(--accent);border:none;color:white;width:28px;border-radius:6px;cursor:pointer">+</button></div>
     <div id="trip-list"></div>
-    <div style="padding:15px; background:#0f172a; font-size:11px; color:#64748b" id="syncStatus">📡 同步中...</div>
+    <div style="padding:15px; background:#0f172a; font-size:11px; color:#64748b" id="syncStatus">📡 正在同步...</div>
 </div>
 
 <div id="main">
     <div id="content-area" style="display:none">
         <div class="summary-bar">
-            <div class="stat-card"><span class="label">交通</span><span class="value" id="sum-p1">￥0</span></div>
-            <div class="stat-card"><span class="label">项目</span><span class="value" id="sum-p2">￥0</span></div>
-            <div class="stat-card"><span class="label">酒店</span><span class="value" id="sum-p3">￥0</span></div>
-            <div class="stat-card"><span class="label">餐饮</span><span class="value" id="sum-p4">￥0</span></div>
-            <div class="stat-card total-card"><span class="label">全行程总开销</span><span class="value" id="sum-grand">￥0</span></div>
+            <div class="stat-card grand-total"><span class="label">全行程总预算</span><span class="value" id="sum-grand">￥0</span></div>
+            <div class="stat-card"><span class="label">交通费总计</span><span class="value" id="sum-p1">￥0</span></div>
+            <div class="stat-card"><span class="label">项目费总计</span><span class="value" id="sum-p2">￥0</span></div>
+            <div class="stat-card"><span class="label">酒店费总计</span><span class="value" id="sum-p3">￥0</span></div>
+            <div class="stat-card"><span class="label">餐饮费总计</span><span class="value" id="sum-p4">￥0</span></div>
         </div>
         
-        <button onclick="addDay()" style="background:#10b981; color:white; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:600; margin-bottom:20px; transition: 0.2s;">+ 新增日期</button>
+        <button onclick="addDay()" style="background:#10b981; color:white; border:none; padding:10px 22px; border-radius:8px; cursor:pointer; font-weight:600; margin-bottom:20px;">+ 新增日期</button>
 
         <div class="excel-box">
             <table>
@@ -93,8 +92,8 @@
                     <tr>
                         <th rowspan="2" style="width:45px">天数</th><th rowspan="2" style="width:120px">日期</th>
                         <th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th>
-                        <th colspan="2">交通</th><th colspan="2">项目项目</th>
-                        <th colspan="2">住宿酒店 (分摊)</th><th colspan="2">餐饮</th>
+                        <th colspan="2">交通 (↓分摊)</th><th colspan="2">行程项目</th>
+                        <th colspan="2">酒店 (↓按晚平摊)</th><th colspan="2">餐饮</th>
                         <th rowspan="2" style="width:40px">删</th>
                     </tr>
                     <tr>
@@ -109,7 +108,6 @@
 </div>
 
 <script>
-    // 算术引擎：确保 1000/3 也能转为数字参与求和
     function parseMath(str) {
         if (!str || typeof str !== 'string') return str;
         if (!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str)) return str;
@@ -129,38 +127,29 @@
             day.rows.forEach((row, rIdx) => {
                 const tr = document.createElement('tr');
                 if (rIdx === 0) tr.classList.add('day-start');
-
                 if (rIdx === 0) {
                     tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center; font-weight:bold; background:#f8fafc">D${dIdx+1}</td>`;
                     tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx}, this.value)"></td>`;
                 }
-
-                // 所在地合并显示
                 renderCell(tr, dIdx, rIdx, 'loc', (dIdx%2==0?'#f0f9ff':'#e0f2fe'), true);
                 tr.innerHTML += `<td><input value="${row.time}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
-                
-                // 交通/项目
                 renderCell(tr, dIdx, rIdx, 't1', 'white', true, 'p1');
                 tr.innerHTML += `<td><input value="${row.t2}" onblur="updateVal(${dIdx},${rIdx},'t2',this.value)"></td>`;
                 tr.innerHTML += `<td><input value="${row.p2}" onblur="updateMath(${dIdx},${rIdx},'p2',this.value)"></td>`;
-
-                // 酒店合并显示
                 renderCell(tr, dIdx, rIdx, 'h_t', (dIdx%2==0?'#fefce8':'#fef9c3'), true, 'p3');
-
-                // 餐饮
                 tr.innerHTML += `<td><input value="${row.t4}" onblur="updateVal(${dIdx},${rIdx},'t4',this.value)"></td>`;
                 tr.innerHTML += `<td><input value="${row.p4}" onblur="updateMath(${dIdx},${rIdx},'p4',this.value)"></td>`;
-
                 tr.innerHTML += `<td style="text-align:center; cursor:pointer; color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕</td>`;
                 tbody.appendChild(tr);
             });
         });
-        updateStats();
+        updateStats(); // 渲染完后立即计算
     }
 
     function renderCell(tr, dIdx, rIdx, key, bg, hasFill, pKey) {
         const rows = window.trips[window.activeId].days[dIdx].rows;
         const val = rows[rIdx][key] || "";
+        // 合并判断逻辑：如果是同名格，则不渲染（视觉隐藏）
         if (rIdx > 0 && val !== "" && val === rows[rIdx-1][key]) return;
 
         let span = 1;
@@ -185,76 +174,38 @@
         }
     }
 
-    // 智能联动分摊：基于天数
-    window.smartFill联动 = function(dIdx, rIdx, key, pKey) {
-        const trip = window.trips[window.activeId];
-        const rawInput = trip.days[dIdx].rows[rIdx][pKey] || "0";
-        const contentName = trip.days[dIdx].rows[rIdx][key];
-        if(!contentName) return;
-
-        let involvedDayIndices = [dIdx];
-        let stopSearch = false;
-        for (let cd = dIdx; cd < trip.days.length; cd++) {
-            if(stopSearch) break;
-            let startRow = (cd === dIdx) ? rIdx + 1 : 0;
-            for (let cr = startRow; cr < trip.days[cd].rows.length; cr++) {
-                if (trip.days[cd].rows[cr][key] && trip.days[cd].rows[cr][key].trim() !== "") { stopSearch = true; break; }
-                if (!involvedDayIndices.includes(cd)) involvedDayIndices.push(cd);
-            }
-        }
-
-        let dayCount = involvedDayIndices.length;
-        let payDayCount = dayCount;
-        if (key === 'h_t' && dayCount > 1) {
-            if (confirm("按“晚数”平摊请点确定（最后一天不收钱）\n按“天数”平摊请点取消（每天均计费）")) payDayCount = dayCount - 1;
-        }
-
-        let totalSum = parseMath(rawInput.toString());
-        let per = Math.floor((totalSum / payDayCount) * 100) / 100;
-        let last = (totalSum - (per * (Math.max(0, payDayCount - 1)))).toFixed(2);
-
-        involvedDayIndices.forEach((dIdxCur, seq) => {
-            trip.days[dIdxCur].rows.forEach((row, crIdx) => {
-                // 如果是当前格或之后的空白格，填入名字
-                if (!(dIdxCur === dIdx && crIdx < rIdx)) {
-                    // 这里增加一层判断：如果已经有字了（不是我们填充的范围），就不动它
-                    if (row[key] === "" || row[key] === contentName) {
-                        row[key] = contentName;
-                        // 金额只写在每天的第一行（或操作行）
-                        if (crIdx === 0 || (dIdxCur === dIdx && crIdx === rIdx)) {
-                            row[pKey] = (seq === payDayCount - 1) ? Number(last) : (seq < payDayCount ? per : 0);
-                        } else {
-                            row[pKey] = 0;
-                        }
-                    }
-                }
-            });
-        });
-        renderTable(); window.saveToCloud();
-    };
-
-    // 核心求和逻辑：直接扫描全行数据
+    // --- 核心修正：视觉对齐统计引擎 ---
     window.updateStats = () => {
         let p1=0, p2=0, p3=0, p4=0;
         const trip = window.trips[window.activeId];
         if(!trip) return;
 
         trip.days.forEach(day => {
-            day.rows.forEach(row => {
-                p1 += Number(row.p1) || 0;
+            day.rows.forEach((row, rIdx) => {
+                // 交通 (p1) 只有在它是合并框的首行（或者没合并）时才统计
+                if (rIdx === 0 || row.t1 === "" || row.t1 !== day.rows[rIdx-1].t1) {
+                    p1 += Number(row.p1) || 0;
+                }
+                // 项目 (p2) 逐行统计
                 p2 += Number(row.p2) || 0;
-                p3 += Number(row.p3) || 0;
+                // 酒店 (p3) 只有在合并框首行统计
+                if (rIdx === 0 || row.h_t === "" || row.h_t !== day.rows[rIdx-1].h_t) {
+                    p3 += Number(row.p3) || 0;
+                }
+                // 餐饮 (p4) 逐行统计
                 p4 += Number(row.p4) || 0;
             });
         });
 
-        document.getElementById('sum-p1').innerText = '￥' + p1.toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('sum-p2').innerText = '￥' + p2.toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('sum-p3').innerText = '￥' + p3.toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('sum-p4').innerText = '￥' + p4.toLocaleString(undefined, {minimumFractionDigits: 2});
-        document.getElementById('sum-grand').innerText = '￥' + (p1 + p2 + p3 + p4).toLocaleString(undefined, {minimumFractionDigits: 2});
+        const fmt = (v) => '￥' + v.toLocaleString(undefined, {minimumFractionDigits: 2});
+        document.getElementById('sum-p1').innerText = fmt(p1);
+        document.getElementById('sum-p2').innerText = fmt(p2);
+        document.getElementById('sum-p3').innerText = fmt(p3);
+        document.getElementById('sum-p4').innerText = fmt(p4);
+        document.getElementById('sum-grand').innerText = fmt(p1 + p2 + p3 + p4);
     };
 
+    // 其他原有功能逻辑
     window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; if(['loc','t1','h_t'].includes(k)) renderTable(); window.saveToCloud(); };
     window.updateMath = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=parseMath(v); updateStats(); window.saveToCloud(); };
     window.updateDayDate = (d,v) => { window.trips[window.activeId].days[d].date=v; window.saveToCloud(); };
@@ -268,8 +219,44 @@
         });
     };
     window.addDay = () => { window.trips[window.activeId].days.push({date:'', rows:[{loc:'',time:'09:00',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}]}); renderTable(); window.saveToCloud(); };
-    window.insertRow = (d, r) => { window.trips[window.activeId].days[d].rows.splice(r+1, 0, {loc:'',time:'',t1:'',p1:0,t2:'',p2:0,h_t:'',p3:0,t4:'',p4:0}); renderTable(); window.saveToCloud(); };
     window.delRow = (d,r) => { window.trips[window.activeId].days[d].rows.splice(r,1); if(window.trips[window.activeId].days[d].rows.length===0) window.trips[window.activeId].days.splice(d,1); renderTable(); window.saveToCloud(); };
+    window.smartFill联动 = function(dIdx, rIdx, key, pKey) {
+        const trip = window.trips[window.activeId];
+        const rawInput = trip.days[dIdx].rows[rIdx][pKey] || "0";
+        const contentName = trip.days[dIdx].rows[rIdx][key];
+        if(!contentName) return;
+        let involvedDayIndices = [dIdx];
+        let stopSearch = false;
+        for (let cd = dIdx; cd < trip.days.length; cd++) {
+            if(stopSearch) break;
+            let startRow = (cd === dIdx) ? rIdx + 1 : 0;
+            for (let cr = startRow; cr < trip.days[cd].rows.length; cr++) {
+                if (trip.days[cd].rows[cr][key] && trip.days[cd].rows[cr][key].trim() !== "") { stopSearch = true; break; }
+                if (!involvedDayIndices.includes(cd)) involvedDayIndices.push(cd);
+            }
+        }
+        let dayCount = involvedDayIndices.length;
+        let payDayCount = dayCount;
+        if (key === 'h_t' && dayCount > 1) {
+            if (confirm("按“晚数”平摊请点确定（最后一天不收钱）\n按“天数”平摊请点取消（每天均计费）")) payDayCount = dayCount - 1;
+        }
+        let totalSum = parseMath(rawInput.toString());
+        let per = Math.floor((totalSum / payDayCount) * 100) / 100;
+        let last = (totalSum - (per * (Math.max(0, payDayCount - 1)))).toFixed(2);
+        involvedDayIndices.forEach((dIdxCur, seq) => {
+            trip.days[dIdxCur].rows.forEach((row, crIdx) => {
+                if (!(dIdxCur === dIdx && crIdx < rIdx)) {
+                    if (row[key] === "" || row[key] === contentName) {
+                        row[key] = contentName;
+                        if (crIdx === 0 || (dIdxCur === dIdx && crIdx === rIdx)) {
+                            row[pKey] = (seq === payDayCount - 1) ? Number(last) : (seq < payDayCount ? per : 0);
+                        } else { row[pKey] = 0; }
+                    }
+                }
+            });
+        });
+        renderTable(); window.saveToCloud();
+    };
 </script>
 </body>
 </html>

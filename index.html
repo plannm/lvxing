@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v38.5 - 足迹拼图版</title>
+    <title>私人旅行高级工作台 v38.6 - 拼图逻辑增强版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -26,12 +26,12 @@
         window.dbRef = ref(db, 'travelData/' + myID);
 
         window.trips = {}; 
-        window.activeId = 'dashboard'; // 默认进入总览
+        window.activeId = 'dashboard';
 
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            document.getElementById('syncStatus').innerText = "☁️ 拼图已更新";
+            document.getElementById('syncStatus').innerText = "☁️ 拼图算法已优化";
             renderSidebar();
             refreshView();
         });
@@ -43,12 +43,10 @@
         :root { --sidebar-bg: #1e293b; --accent: #3b82f6; --bg-main: #f1f5f9; --border-color: #e2e8f0; --radius: 12px; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-main); overflow: hidden; }
         
-        /* 侧边栏 */
         #sidebar { width: 280px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; flex-shrink: 0; }
         .side-header { padding: 24px 20px; font-size: 18px; font-weight: 700; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
         .dashboard-link { padding: 15px 20px; margin: 10px 12px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05); color: #fff; font-weight: 600; transition: 0.2s; border: 1px solid rgba(255,255,255,0.1); }
-        .dashboard-link:hover { background: rgba(255,255,255,0.1); }
-        .dashboard-link.active { background: var(--accent); border-color: var(--accent); }
+        .dashboard-link.active { background: var(--accent); }
         
         #trip-list { flex: 1; overflow-y: auto; padding: 0 0 10px 0; }
         .trip-item { padding: 12px 15px; cursor: pointer; color: #94a3b8; margin: 4px 12px; border-radius: 8px; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
@@ -56,43 +54,32 @@
         .edit-name-btn { opacity: 0; font-size: 14px; cursor: pointer; }
         .trip-item:hover .edit-name-btn { opacity: 0.6; }
 
-        /* 主界面 */
         #main { flex: 1; overflow: auto; display: flex; flex-direction: column; }
         .page-content { padding: 30px; display: none; flex: 1; }
         .page-content.active { display: block; }
 
-        /* 地图容器 */
-        #map-container { height: 500px; width: 100%; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: #eee; margin-top: 20px; z-index: 1; }
+        #map-container { height: 550px; width: 100%; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: #f8fafc; margin-top: 20px; z-index: 1; }
         
-        /* 统计卡片 */
         .summary-bar { display: flex; gap: 15px; margin-bottom: 25px; }
         .stat-card { background: white; padding: 20px; border-radius: var(--radius); flex: 1; border: 1px solid var(--border-color); }
-        .stat-card .label { font-size: 12px; color: #64748b; font-weight: 600; }
         .stat-card .value { font-size: 24px; font-weight: 800; color: #1e293b; margin-top: 5px; }
 
-        /* 表格样式沿用 */
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.05); overflow-x: auto; }
         table { border-collapse: collapse; width: 100%; min-width: 1000px; font-size: 13px; table-layout: fixed; }
         th { background: #f8fafc; color: #64748b; padding: 10px 8px; border: 1px solid var(--border-color); }
         td { border: 1px solid var(--border-color); height: 40px; background: white; }
         input { width: 100%; height: 100%; border: none; text-align: center; outline: none; background: transparent; }
         .day-start { border-top: 2px solid #cbd5e1 !important; }
-        
         .btn-add { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 15px; }
-        .fill-btn { position: absolute; right: 2px; top: 2px; cursor: pointer; color: var(--accent); opacity: 0; }
-        td:hover .fill-btn { opacity: 1; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
     <div class="side-header"><span>🌍 旅行随记</span><button onclick="addTrip()" style="background:var(--accent);border:none;color:white;width:28px;border-radius:6px;cursor:pointer">+</button></div>
-    
     <div id="go-dashboard" class="dashboard-link" onclick="loadDashboard()">🏠 全局总览拼图</div>
-    
     <div style="padding: 0 20px; font-size: 11px; color: #475569; margin-bottom: 5px;">我的行程单</div>
     <div id="trip-list"></div>
-    
     <div style="padding:15px; background:#0f172a; font-size:11px; color:#64748b" id="syncStatus">📡 载入中...</div>
 </div>
 
@@ -105,12 +92,11 @@
             <div class="stat-card"><div class="label">全案总开销</div><div class="value" id="stat-money">￥0</div></div>
         </div>
         <div id="map-container"></div>
-        <p style="color:#94a3b8; font-size:12px; margin-top:10px;">* 地图区域填充基于您在行程笔记中填写的“所在地”列。建议填写城市全名（如：上海市、东京、巴黎）。</p>
+        <p style="color:#94a3b8; font-size:12px; margin-top:10px;">* 提示：若部分城市无法显示色块，尝试在所在地加上“市”字（如：兰州市）。</p>
     </div>
 
     <div id="page-detail" class="page-content">
-        <div class="summary-bar" id="detail-stats">
-            </div>
+        <div class="summary-bar" id="detail-stats"></div>
         <button class="btn-add" onclick="addDay()">+ 新增日期</button>
         <div class="excel-box">
             <table>
@@ -133,72 +119,72 @@
 <script>
     let map = null;
     let geoJsonLayers = [];
+    const colors = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
 
-    // --- 地图逻辑 ---
     function initMap() {
         if (map) return;
-        // 使用一个偏灰色的底图，符合用户“未去过置灰”的视觉心理
-        map = L.map('map-container').setView([30, 110], 4);
+        map = L.map('map-container').setView([35, 105], 4);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; OpenStreetMap'
+            attribution: '&copy; CARTO'
         }).addTo(map);
     }
 
-    // --- v38.5 核心改进：按城市区域填充拼图 ---
+    // --- 核心修复：更智能的拼图区域获取 ---
     async function updateMapFills() {
-        // 清除旧填充层
-        geoJsonLayers.forEach(layer => map.removeLayer(layer));
+        geoJsonLayers.forEach(l => map.removeLayer(l));
         geoJsonLayers = [];
 
-        const citySet = new Set(); // 存储所有去过的城市
-
-        // 提取所有城市名
-        Object.values(window.trips).forEach(trip => {
-            if (!trip.days) return;
-            trip.days.forEach(day => {
-                day.rows.forEach(row => {
-                    if (row.loc && row.loc.trim() !== "") {
-                        citySet.add(row.loc.trim());
-                    }
-                });
-            });
+        const citySet = new Set();
+        Object.values(window.trips).forEach(t => {
+            if (t.days) t.days.forEach(d => d.rows.forEach(r => {
+                if (r.loc && r.loc.trim()) citySet.add(r.loc.trim());
+            }));
         });
 
         document.getElementById('stat-cities').innerText = citySet.size;
-
-        const colors = ["#2563eb", "#10b981", "#8b5cf6", "#f97316", "#ef4444", "#a855f7"];
         let colorIdx = 0;
 
-        // 获取并填充边界
         for (let city of citySet) {
+            // 优化点 1: 智能补齐后缀提高匹配率
+            let searchQuery = city;
+            if (city.length < 3 && !city.endsWith('市') && !city.endsWith('省')) {
+                searchQuery = city + "市"; 
+            }
+
             try {
-                // 使用公共API获取城市的 GeoJSON 边界数据 (OSM Nominatim)
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(city)}&limit=1`);
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(searchQuery)}&limit=1`);
                 const data = await resp.json();
-                if (data && data.length > 0 && data[0].geojson) {
-                    const geojson = data[0].geojson;
-                    const fillColor = colors[colorIdx % colors.length];
-                    
-                    // 创建边界层并添加到地图
-                    const layer = L.geoJSON(geojson, {
-                        style: {
-                            fillColor: fillColor,
-                            color: "#fff", // 边界颜色（拼图的“缝隙”）
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.7
-                        }
-                    }).addTo(map);
-                    
-                    layer.bindPopup(`<b>${city}</b> - 拼图区域已锁定`);
-                    geoJsonLayers.push(layer);
+                
+                if (data && data.length > 0) {
+                    const geo = data[0].geojson;
+                    const color = colors[colorIdx % colors.length];
                     colorIdx++;
+
+                    let layer;
+                    // 优化点 2: 判定数据类型，如果是点（Point），手动画圆充当色块
+                    if (geo.type === "Point") {
+                        layer = L.circle([geo.coordinates[1], geo.coordinates[0]], {
+                            radius: 15000, // 约15公里的半径，模拟城市区域
+                            fillColor: color,
+                            color: "#fff",
+                            weight: 1,
+                            fillOpacity: 0.7
+                        }).addTo(map);
+                    } else {
+                        // 如果是正常的面（Polygon/MultiPolygon）
+                        layer = L.geoJSON(geo, {
+                            style: { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.7 }
+                        }).addTo(map);
+                    }
+                    
+                    layer.bindPopup(`<b>${city}</b>`);
+                    geoJsonLayers.push(layer);
                 }
-            } catch (e) { console.error("边界解析失败:", city); }
+            } catch (e) { console.error("解析失败:", city); }
         }
     }
 
-    // --- 界面切换逻辑保持不变 ---
+    // --- 界面管理 ---
     window.loadDashboard = () => {
         window.activeId = 'dashboard';
         document.getElementById('page-dashboard').classList.add('active');
@@ -219,27 +205,21 @@
 
     function refreshView() {
         if (window.activeId === 'dashboard') loadDashboard();
-        else loadTrip(window.activeId);
+        else if (window.activeId) loadTrip(window.activeId);
     }
 
-    // --- 统计逻辑 ---
     function updateGlobalStats() {
-        let totalMoney = 0;
-        const tripsCount = Object.keys(window.trips).length;
-        Object.values(window.trips).forEach(trip => {
-            if (trip.days) {
-                trip.days.forEach(day => {
-                    day.rows.forEach(row => {
-                        totalMoney += (Number(row.p1)||0) + (Number(row.p2)||0) + (Number(row.p3)||0) + (Number(row.p4)||0);
-                    });
-                });
-            }
+        let total = 0;
+        Object.values(window.trips).forEach(t => {
+            if (t.days) t.days.forEach(d => d.rows.forEach(r => {
+                total += (Number(r.p1)||0) + (Number(r.p2)||0) + (Number(r.p3)||0) + (Number(r.p4)||0);
+            }));
         });
-        document.getElementById('stat-trips').innerText = tripsCount;
-        document.getElementById('stat-money').innerText = '￥' + totalMoney.toLocaleString();
+        document.getElementById('stat-trips').innerText = Object.keys(window.trips).length;
+        document.getElementById('stat-money').innerText = '￥' + total.toLocaleString();
     }
 
-    // --- 基础表格功能保持不变 ---
+    // --- 表格逻辑 (保持高效版本) ---
     const emptyRow = () => ({ loc: '', time: '', t1: '', p1: '', t2: '', p2: '', h_t: '', p3: '', t4: '', p4: '' });
 
     function renderTable() {
@@ -253,24 +233,14 @@
                 const tr = document.createElement('tr');
                 if (rIdx === 0) tr.classList.add('day-start');
                 if (rIdx === 0) {
-                    tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center;font-weight:bold">D${dIdx+1}</td>`;
+                    tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center;font-weight:bold;background:#f8fafc">D${dIdx+1}</td>`;
                     tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx},this.value)"></td>`;
                 }
-                
-                const tdLoc = document.createElement('td');
-                tdLoc.style.background = dIdx % 2 === 0 ? '#f0f9ff' : '#fff';
-                tdLoc.innerHTML = `<input value="${row.loc||''}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)">`;
-                tr.appendChild(tdLoc);
-
+                tr.innerHTML += `<td style="background:${dIdx%2==0?'#f0f9ff':'#fff'}"><input value="${row.loc||''}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)"></td>`;
                 tr.innerHTML += `<td><input value="${row.time||''}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
-                
-                ['t1','p1','t2','p2','h_t','p3','t4','p4'].forEach(key => {
-                    const td = document.createElement('td');
-                    const val = row[key] === 0 ? '' : (row[key]||'');
-                    td.innerHTML = `<input value="${val}" onblur="${key.startsWith('p')?'updateMath':'updateVal'}(${dIdx},${rIdx},'${key}',this.value)">`;
-                    tr.appendChild(td);
+                ['t1','p1','t2','p2','h_t','p3','t4','p4'].forEach(k => {
+                    tr.innerHTML += `<td><input value="${(row[k]===0?'':row[k])||''}" onblur="${k.startsWith('p')?'updateMath':'updateVal'}(${dIdx},${rIdx},'${k}',this.value)"></td>`;
                 });
-
                 tr.innerHTML += `<td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕</td>`;
                 tbody.appendChild(tr);
             });
@@ -280,18 +250,15 @@
 
     function updateDetailStats() {
         const trip = window.trips[window.activeId];
-        let p1=0, p2=0, p3=0, p4=0;
-        trip.days.forEach(day => day.rows.forEach(row => {
-            p1 += Number(row.p1)||0; p2 += Number(row.p2)||0; p3 += Number(row.p3)||0; p4 += Number(row.p4)||0;
-        }));
-        const total = p1+p2+p3+p4;
+        let s = [0,0,0,0];
+        trip.days.forEach(d => d.rows.forEach(r => { s[0]+=Number(r.p1)||0; s[1]+=Number(r.p2)||0; s[2]+=Number(r.p3)||0; s[3]+=Number(r.p4)||0; }));
+        const total = s.reduce((a,b)=>a+b, 0);
         document.getElementById('detail-stats').innerHTML = `
-            <div class="stat-card" style="background:#1e293b; color:white"><div class="label" style="color:#3b82f6">本行程总计</div><div class="value" style="color:white">￥${total.toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">交通</div><div class="value">￥${p1.toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">项目</div><div class="value">￥${p2.toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">酒店</div><div class="value">￥${p3.toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">餐饮</div><div class="value">￥${p4.toFixed(2)}</div></div>
-        `;
+            <div class="stat-card" style="background:#1e293b;color:white"><div class="label" style="color:#3b82f6">本行程总计</div><div class="value" style="color:white">￥${total.toFixed(2)}</div></div>
+            <div class="stat-card"><div class="label">交通</div><div class="value">￥${s[0].toFixed(2)}</div></div>
+            <div class="stat-card"><div class="label">项目</div><div class="value">￥${s[1].toFixed(2)}</div></div>
+            <div class="stat-card"><div class="label">酒店</div><div class="value">￥${s[2].toFixed(2)}</div></div>
+            <div class="stat-card"><div class="label">餐饮</div><div class="value">￥${s[3].toFixed(2)}</div></div>`;
     }
 
     window.renderSidebar = () => {
@@ -314,7 +281,6 @@
         window.trips[window.activeId].days[d].rows[r][k]=res; updateDetailStats(); window.saveToCloud(); 
     };
     window.updateDayDate = (d,v) => { window.trips[window.activeId].days[d].date=v; window.saveToCloud(); };
-
 </script>
 </body>
 </html>

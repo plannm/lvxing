@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v38.0 - 足迹地图版</title>
+    <title>私人旅行高级工作台 v38.5 - 足迹拼图版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -31,7 +31,7 @@
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            document.getElementById('syncStatus').innerText = "☁️ 足迹已更新";
+            document.getElementById('syncStatus').innerText = "☁️ 拼图已更新";
             renderSidebar();
             refreshView();
         });
@@ -88,7 +88,7 @@
 <div id="sidebar">
     <div class="side-header"><span>🌍 旅行随记</span><button onclick="addTrip()" style="background:var(--accent);border:none;color:white;width:28px;border-radius:6px;cursor:pointer">+</button></div>
     
-    <div id="go-dashboard" class="dashboard-link" onclick="loadDashboard()">🏠 全局总览足迹</div>
+    <div id="go-dashboard" class="dashboard-link" onclick="loadDashboard()">🏠 全局总览拼图</div>
     
     <div style="padding: 0 20px; font-size: 11px; color: #475569; margin-bottom: 5px;">我的行程单</div>
     <div id="trip-list"></div>
@@ -98,14 +98,14 @@
 
 <div id="main">
     <div id="page-dashboard" class="page-content">
-        <h2 style="margin-top:0">我的旅行足迹</h2>
+        <h2 style="margin-top:0">我的足迹拼图</h2>
         <div class="summary-bar">
-            <div class="stat-card"><div class="label">已踏足城市</div><div class="value" id="stat-cities">0</div></div>
+            <div class="stat-card"><div class="label">已踏足城市区域</div><div class="value" id="stat-cities">0</div></div>
             <div class="stat-card"><div class="label">累计行程</div><div class="value" id="stat-trips">0</div></div>
             <div class="stat-card"><div class="label">全案总开销</div><div class="value" id="stat-money">￥0</div></div>
         </div>
         <div id="map-container"></div>
-        <p style="color:#94a3b8; font-size:12px; margin-top:10px;">* 地图标记基于您在行程笔记中填写的“所在地”列。建议填写城市名（如：上海、东京）。</p>
+        <p style="color:#94a3b8; font-size:12px; margin-top:10px;">* 地图区域填充基于您在行程笔记中填写的“所在地”列。建议填写城市全名（如：上海市、东京、巴黎）。</p>
     </div>
 
     <div id="page-detail" class="page-content">
@@ -132,7 +132,7 @@
 
 <script>
     let map = null;
-    let markers = [];
+    let geoJsonLayers = [];
 
     // --- 地图逻辑 ---
     function initMap() {
@@ -144,61 +144,68 @@
         }).addTo(map);
     }
 
-    async function updateMapMarkers() {
-        // 清除旧标记
-        markers.forEach(m => map.removeLayer(m));
-        markers = [];
+    // --- v38.5 核心改进：按城市区域填充拼图 ---
+    async function updateMapFills() {
+        // 清除旧填充层
+        geoJsonLayers.forEach(layer => map.removeLayer(layer));
+        geoJsonLayers = [];
 
-        const cityMap = new Map(); // 存储去过的城市及其行程名
+        const citySet = new Set(); // 存储所有去过的城市
 
-        // 提取所有城市
+        // 提取所有城市名
         Object.values(window.trips).forEach(trip => {
             if (!trip.days) return;
             trip.days.forEach(day => {
                 day.rows.forEach(row => {
                     if (row.loc && row.loc.trim() !== "") {
-                        const city = row.loc.trim();
-                        if (!cityMap.has(city)) cityMap.set(city, new Set());
-                        cityMap.get(city).add(trip.name);
+                        citySet.add(row.loc.trim());
                     }
                 });
             });
         });
 
-        document.getElementById('stat-cities').innerText = cityMap.size;
+        document.getElementById('stat-cities').innerText = citySet.size;
 
-        // 简单的地理坐标转换 (真实项目建议用高德/谷歌API，这里用OSM免费接口示范)
-        for (let [city, tripNames] of cityMap) {
+        const colors = ["#2563eb", "#10b981", "#8b5cf6", "#f97316", "#ef4444", "#a855f7"];
+        let colorIdx = 0;
+
+        // 获取并填充边界
+        for (let city of citySet) {
             try {
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(city)}&limit=1`);
+                // 使用公共API获取城市的 GeoJSON 边界数据 (OSM Nominatim)
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(city)}&limit=1`);
                 const data = await resp.json();
-                if (data && data.length > 0) {
-                    const lat = data[0].lat;
-                    const lon = data[0].lon;
-                    // 为不同城市创建彩色圆点
-                    const marker = L.circleMarker([lat, lon], {
-                        radius: 8,
-                        fillColor: "#3b82f6",
-                        color: "#fff",
-                        weight: 2,
-                        opacity: 1,
-                        fillOpacity: 0.8
+                if (data && data.length > 0 && data[0].geojson) {
+                    const geojson = data[0].geojson;
+                    const fillColor = colors[colorIdx % colors.length];
+                    
+                    // 创建边界层并添加到地图
+                    const layer = L.geoJSON(geojson, {
+                        style: {
+                            fillColor: fillColor,
+                            color: "#fff", // 边界颜色（拼图的“缝隙”）
+                            weight: 1,
+                            opacity: 1,
+                            fillOpacity: 0.7
+                        }
                     }).addTo(map);
-                    marker.bindPopup(`<b>${city}</b><br>行程：${Array.from(tripNames).join(', ')}`);
-                    markers.push(marker);
+                    
+                    layer.bindPopup(`<b>${city}</b> - 拼图区域已锁定`);
+                    geoJsonLayers.push(layer);
+                    colorIdx++;
                 }
-            } catch (e) { console.error("地址解析失败:", city); }
+            } catch (e) { console.error("边界解析失败:", city); }
         }
     }
 
-    // --- 界面切换 ---
+    // --- 界面切换逻辑保持不变 ---
     window.loadDashboard = () => {
         window.activeId = 'dashboard';
         document.getElementById('page-dashboard').classList.add('active');
         document.getElementById('page-detail').classList.remove('active');
         renderSidebar();
         initMap();
-        setTimeout(() => { map.invalidateSize(); updateMapMarkers(); }, 200);
+        setTimeout(() => { map.invalidateSize(); updateMapFills(); }, 200);
         updateGlobalStats();
     };
 
@@ -232,7 +239,7 @@
         document.getElementById('stat-money').innerText = '￥' + totalMoney.toLocaleString();
     }
 
-    // --- 基础表格功能（保持之前的高性能版本） ---
+    // --- 基础表格功能保持不变 ---
     const emptyRow = () => ({ loc: '', time: '', t1: '', p1: '', t2: '', p2: '', h_t: '', p3: '', t4: '', p4: '' });
 
     function renderTable() {
@@ -250,7 +257,6 @@
                     tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx},this.value)"></td>`;
                 }
                 
-                // 所在地单元格
                 const tdLoc = document.createElement('td');
                 tdLoc.style.background = dIdx % 2 === 0 ? '#f0f9ff' : '#fff';
                 tdLoc.innerHTML = `<input value="${row.loc||''}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)">`;
@@ -258,7 +264,6 @@
 
                 tr.innerHTML += `<td><input value="${row.time||''}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
                 
-                // 简化渲染其他金额格...
                 ['t1','p1','t2','p2','h_t','p3','t4','p4'].forEach(key => {
                     const td = document.createElement('td');
                     const val = row[key] === 0 ? '' : (row[key]||'');
@@ -289,7 +294,6 @@
         `;
     }
 
-    // --- 通用辅助函数 ---
     window.renderSidebar = () => {
         const l = document.getElementById('trip-list'); l.innerHTML = '';
         document.getElementById('go-dashboard').className = `dashboard-link ${window.activeId==='dashboard'?'active':''}`;
@@ -304,7 +308,7 @@
     window.addTrip = () => { const n = prompt("行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[emptyRow()]}]}; window.saveToCloud(); loadTrip(id); } };
     window.addDay = () => { window.trips[window.activeId].days.push({date:'', rows:[emptyRow()]}); renderTable(); window.saveToCloud(); };
     window.delRow = (d,r) => { const trip = window.trips[window.activeId]; trip.days[d].rows.splice(r,1); if(trip.days[d].rows.length===0) trip.days.splice(d,1); renderTable(); window.saveToCloud(); };
-    window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; if(k==='loc'&&window.activeId==='dashboard') updateMapMarkers(); window.saveToCloud(); };
+    window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; if(k==='loc'&&window.activeId==='dashboard') updateMapFills(); window.saveToCloud(); };
     window.updateMath = (d,r,k,v) => { 
         const res = (function(str){ if(!str)return ''; if(!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str))return str; try{const n=new Function('return '+str)(); return isFinite(n)?Number(n.toFixed(2)):str;}catch(e){return str;}})(v);
         window.trips[window.activeId].days[d].rows[r][k]=res; updateDetailStats(); window.saveToCloud(); 

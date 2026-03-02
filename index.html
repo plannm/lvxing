@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v39.3</title>
+    <title>私人旅行高级工作台 v38.8 - 完美拼图版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -34,7 +34,7 @@
             if(!window.trips['history_only']){
                 window.trips['history_only'] = { name: "📜 历史足迹(点亮专用)", isHistory: true, days: [{date:'无需填写', rows:[{loc:''}]}] };
             }
-            document.getElementById('syncStatus').innerText = "☁️ 云端同步成功";
+            document.getElementById('syncStatus').innerText = "☁️ 拼图算法已重构";
             renderSidebar();
             refreshView();
         });
@@ -45,58 +45,46 @@
     <style>
         :root { --sidebar-bg: #1e293b; --accent: #3b82f6; --bg-main: #f1f5f9; --border-color: #e2e8f0; --radius: 12px; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-main); overflow: hidden; }
-        
         #sidebar { width: 280px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; flex-shrink: 0; }
         .side-header { padding: 24px 20px; font-size: 18px; font-weight: 700; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
         .dashboard-link { padding: 15px 20px; margin: 10px 12px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05); color: #fff; font-weight: 600; transition: 0.2s; border: 1px solid rgba(255,255,255,0.1); }
         .dashboard-link.active { background: var(--accent); }
         #trip-list { flex: 1; overflow-y: auto; padding: 0 0 10px 0; }
-        .trip-item { padding: 12px 15px; cursor: pointer; color: #94a3b8; margin: 4px 12px; border-radius: 8px; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; font-size: 14px; }
+        .trip-item { padding: 12px 15px; cursor: pointer; color: #94a3b8; margin: 4px 12px; border-radius: 8px; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
         .trip-item.active { background: rgba(59, 130, 246, 0.2); color: white; border-left: 4px solid var(--accent); }
-        .history-item { border: 1px dashed #475569; color: #fbbf24 !important; }
-
+        .history-item { border: 1px dashed #475569; margin-top: 20px; color: #fbbf24; }
         #main { flex: 1; overflow: auto; display: flex; flex-direction: column; }
         .page-content { padding: 30px; display: none; flex: 1; }
         .page-content.active { display: block; }
-        #map-container { height: 500px; width: 100%; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: #f8fafc; margin-top: 20px; }
-        
+        #map-container { height: 550px; width: 100%; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: #f8fafc; margin-top: 20px; }
         .summary-bar { display: flex; gap: 15px; margin-bottom: 25px; }
-        .stat-card { background: white; padding: 20px; border-radius: var(--radius); flex: 1; border: 1px solid var(--border-color); box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .stat-card .label { color: #64748b; font-size: 13px; font-weight: 600; }
-        .stat-card .value { font-size: 26px; font-weight: 800; color: #1e293b; margin-top: 5px; }
-        /* 强化财务卡片颜色 */
-        .stat-card.finance-card { background: #0f172a; border: none; }
-        .stat-card.finance-card .label { color: #3b82f6; }
-        .stat-card.finance-card .value { color: #ffffff; }
-
+        .stat-card { background: white; padding: 20px; border-radius: var(--radius); flex: 1; border: 1px solid var(--border-color); }
+        .stat-card .value { font-size: 24px; font-weight: 800; color: #1e293b; margin-top: 5px; }
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { border-collapse: collapse; width: 100%; min-width: 1200px; font-size: 13px; table-layout: fixed; }
-        th { background: #f8fafc; color: #475569; padding: 10px 8px; border: 1px solid var(--border-color); font-weight: 700; }
+        table { border-collapse: collapse; width: 100%; min-width: 800px; font-size: 13px; }
+        th { background: #f8fafc; color: #64748b; padding: 10px 8px; border: 1px solid var(--border-color); }
         td { border: 1px solid var(--border-color); height: 40px; background: white; }
-        input { width: 100%; height: 100%; border: none; text-align: center; outline: none; background: transparent; color: #334155; }
-        
-        .day-sep { border-top: 2.5px solid #64748b !important; }
-        .merge-cell { background: #f8fafc; font-weight: 700; color: #1e293b; text-align: center; }
-        .btn-group { margin-bottom: 15px; display: flex; gap: 10px; }
-        .btn-add { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+        input { width: 100%; height: 100%; border: none; text-align: center; outline: none; background: transparent; }
+        .btn-add { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 15px; }
     </style>
 </head>
 <body>
 
 <div id="sidebar">
-    <div class="side-header"><span>🌍 私人旅行记</span><button onclick="addTrip()" style="background:var(--accent);border:none;color:white;width:28px;border-radius:6px;cursor:pointer">+</button></div>
+    <div class="side-header"><span>🌍 旅行随记</span><button onclick="addTrip()" style="background:var(--accent);border:none;color:white;width:28px;border-radius:6px;cursor:pointer">+</button></div>
     <div id="go-dashboard" class="dashboard-link" onclick="loadDashboard()">🏠 全局总览拼图</div>
-    <div style="padding: 15px 20px 5px 20px; font-size: 11px; color: #64748b; font-weight: 700;">行程单</div>
+    <div style="padding: 0 20px; font-size: 11px; color: #475569; margin-bottom: 5px;">我的行程单</div>
     <div id="trip-list"></div>
-    <div style="padding:15px; background:#0f172a; font-size:11px; color:#475569" id="syncStatus">📡 同步中...</div>
+    <div style="padding:15px; background:#0f172a; font-size:11px; color:#64748b" id="syncStatus">📡 载入中...</div>
 </div>
 
 <div id="main">
     <div id="page-dashboard" class="page-content">
         <h2 style="margin-top:0">我的足迹拼图</h2>
         <div class="summary-bar">
-            <div class="stat-card"><div class="label">已点亮区域</div><div class="value" id="stat-cities">0</div></div>
+            <div class="stat-card"><div class="label">已踏足区域</div><div class="value" id="stat-cities">0</div></div>
             <div class="stat-card"><div class="label">行程总数</div><div class="value" id="stat-trips">0</div></div>
+            <div class="stat-card"><div class="label">全案总开销</div><div class="value" id="stat-money">￥0</div></div>
         </div>
         <div id="map-container"></div>
     </div>
@@ -104,10 +92,7 @@
     <div id="page-detail" class="page-content">
         <h2 id="detail-title">行程详情</h2>
         <div class="summary-bar" id="detail-stats"></div>
-        <div class="btn-group">
-            <button class="btn-add" onclick="addDay()">+ 新增日期</button>
-            <button class="btn-add" style="background:#3b82f6" onclick="addRowToLastDay()">+ 增加行</button>
-        </div>
+        <button class="btn-add" id="add-btn" onclick="addDay()">+ 新增条目</button>
         <div class="excel-box">
             <table id="main-table">
                 <thead id="table-head"></thead>
@@ -120,12 +105,46 @@
 <script>
     let map = null;
     let geoJsonLayers = [];
+    // 采用一组更有质感的马卡龙拼图色
     const colors = ["#4776E6", "#10b981", "#FF8008", "#ef4444", "#8e44ad", "#2c3e50", "#16a085"];
 
     function initMap() {
         if (map) return;
         map = L.map('map-container').setView([30, 105], 4);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { 
+            attribution: '&copy; CARTO' 
+        }).addTo(map);
+    }
+
+    // --- 核心修复：更强的边界抓取逻辑 ---
+    async function fetchBoundary(city) {
+        // 尝试两种搜索策略：原名，以及加了“市”的名称
+        const queries = [city];
+        if (city.length < 4 && !city.endsWith('市') && !city.endsWith('区')) {
+            queries.push(city + "市");
+        }
+
+        for (let q of queries) {
+            try {
+                // 重点：增加 polygon_threshold 参数，并优先匹配边界
+                const url = `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(q)}&limit=5`;
+                const resp = await fetch(url);
+                const results = await resp.json();
+                
+                if (results && results.length > 0) {
+                    // 在结果中寻找类型为 'administrative' 且具有 GeoJSON 面的结果
+                    const bestMatch = results.find(r => r.class === "boundary" || r.type === "administrative") || results[0];
+                    if (bestMatch.geojson && bestMatch.geojson.type !== "Point") {
+                        return { geo: bestMatch.geojson, name: city };
+                    }
+                    // 如果只找到了点，先记住它，作为最后的兜底
+                    if (bestMatch.geojson.type === "Point") {
+                        this.fallbackPoint = bestMatch.geojson;
+                    }
+                }
+            } catch (e) {}
+        }
+        return null;
     }
 
     async function updateMapFills() {
@@ -139,97 +158,78 @@
         
         let colorIdx = 0;
         for (let city of citySet) {
-            try {
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(city)}&limit=1`);
-                const data = await resp.json();
-                if (data && data.length > 0) {
-                    const geo = data[0].geojson;
-                    const color = colors[colorIdx % colors.length];
-                    let layer = (geo.type === "Point") ? 
-                        L.circle([geo.coordinates[1], geo.coordinates[0]], { radius: 25000, fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.6 }) :
-                        L.geoJSON(geo, { style: { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.65 } });
-                    layer.addTo(map).bindPopup(`<b>${city}</b>`);
-                    geoJsonLayers.push(layer);
-                    colorIdx++;
-                }
-            } catch (e) {}
+            const result = await fetchBoundary(city);
+            const color = colors[colorIdx % colors.length];
+            colorIdx++;
+
+            if (result && result.geo) {
+                // 绘制真实行政边界拼图
+                const layer = L.geoJSON(result.geo, {
+                    style: { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.65 }
+                }).addTo(map);
+                layer.bindPopup(`<b>${city}</b>`);
+                geoJsonLayers.push(layer);
+            } else if (this.fallbackPoint) {
+                // 只有在实在找不到边界的情况下，才用圆圈保底
+                const layer = L.circle([this.fallbackPoint.coordinates[1], this.fallbackPoint.coordinates[0]], {
+                    radius: 25000, fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.6
+                }).addTo(map);
+                layer.bindPopup(`<b>${city}</b> (范围近似)`);
+                geoJsonLayers.push(layer);
+            }
         }
     }
 
+    // --- 界面管理逻辑保持不变 ---
     window.loadDashboard = () => {
         window.activeId = 'dashboard';
         document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
         document.getElementById('page-dashboard').classList.add('active');
         renderSidebar(); initMap();
         setTimeout(() => { map.invalidateSize(); updateMapFills(); }, 200);
-        document.getElementById('stat-trips').innerText = Object.keys(window.trips).filter(k => k!=='history_only').length;
+        updateGlobalStats();
     };
 
     window.loadTrip = (id) => {
         window.activeId = id;
         document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
         document.getElementById('page-detail').classList.add('active');
+        const isHistory = window.trips[id].isHistory;
+        document.getElementById('detail-title').innerText = window.trips[id].name;
+        document.getElementById('detail-stats').style.display = isHistory ? 'none' : 'flex';
         renderSidebar();
-        renderTable(window.trips[id].isHistory);
+        renderTable(isHistory);
     };
 
     function renderTable(isHistory) {
         const thead = document.getElementById('table-head');
         const tbody = document.getElementById('table-body');
         tbody.innerHTML = '';
-        const trip = window.trips[window.activeId];
-
         if (isHistory) {
-            thead.innerHTML = `<tr><th style="width:60px">序号</th><th>点亮区域</th><th style="width:60px">删</th></tr>`;
+            thead.innerHTML = `<tr><th style="width:60px">序号</th><th>只需填写城市名 (如: 兰州, 伦敦, 纽约)</th><th style="width:60px">操作</th></tr>`;
+            const trip = window.trips[window.activeId];
             trip.days[0].rows.forEach((row, rIdx) => {
                 const tr = document.createElement('tr');
-                tr.innerHTML = `<td class="merge-cell">${rIdx+1}</td><td><input value="${row.loc||''}" onblur="updateVal(0,${rIdx},'loc',this.value)"></td><td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(0,${rIdx})">✕</td>`;
+                tr.innerHTML = `<td style="text-align:center">${rIdx+1}</td>
+                    <td><input value="${row.loc||''}" placeholder="输入城市后点击空白处..." onblur="updateVal(0,${rIdx},'loc',this.value)"></td>
+                    <td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(0,${rIdx})">✕</td>`;
                 tbody.appendChild(tr);
             });
         } else {
-            thead.innerHTML = `<tr><th rowspan="2" style="width:50px">天数</th><th rowspan="2" style="width:110px">日期</th><th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:70px">时间</th><th colspan="2">交通</th><th colspan="2">项目</th><th colspan="2">酒店</th><th colspan="2">餐饮</th><th rowspan="2" style="width:40px">删</th></tr><tr><th>详情</th><th>金额</th><th>详情</th><th>金额</th><th>名称</th><th>金额</th><th>详情</th><th>金额</th></tr>`;
-            
+            thead.innerHTML = `<tr><th rowspan="2" style="width:45px">天数</th><th rowspan="2" style="width:120px">日期</th><th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th><th colspan="2">交通</th><th colspan="2">项目</th><th colspan="2">酒店</th><th colspan="2">餐饮</th><th rowspan="2" style="width:40px">删</th></tr><tr><th>详情</th><th>金额</th><th>详情</th><th>金额</th><th>名称</th><th>金额</th><th>详情</th><th>金额</th></tr>`;
+            const trip = window.trips[window.activeId];
             trip.days.forEach((day, dIdx) => {
                 day.rows.forEach((row, rIdx) => {
                     const tr = document.createElement('tr');
-                    if (rIdx === 0) tr.classList.add('day-sep');
-
-                    // 1. 天数 & 日期合并
                     if (rIdx === 0) {
-                        tr.innerHTML += `<td rowspan="${day.rows.length}" class="merge-cell">D${dIdx+1}</td>`;
+                        tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center;font-weight:bold;background:#f8fafc">D${dIdx+1}</td>`;
                         tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx},this.value)"></td>`;
                     }
-
-                    // 2. 所在地合并逻辑 (判断当前行与后续行是否相同)
-                    let locSpan = 1;
-                    if (rIdx === 0 || row.loc !== day.rows[rIdx-1].loc) {
-                        for(let i=rIdx+1; i<day.rows.length; i++) {
-                            if(day.rows[i].loc === row.loc && row.loc !== "") locSpan++; else break;
-                        }
-                        tr.innerHTML += `<td rowspan="${locSpan}" style="background:#f0f9ff"><input value="${row.loc||''}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)"></td>`;
-                    }
-
+                    tr.innerHTML += `<td><input value="${row.loc||''}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)"></td>`;
                     tr.innerHTML += `<td><input value="${row.time||''}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
-                    
-                    // 3. 交通/项目
-                    ['t1','p1','t2','p2'].forEach(k => {
+                    ['t1','p1','t2','p2','h_t','p3','t4','p4'].forEach(k => {
                         tr.innerHTML += `<td><input value="${(row[k]===0?'':row[k])||''}" onblur="${k.startsWith('p')?'updateMath':'updateVal'}(${dIdx},${rIdx},'${k}',this.value)"></td>`;
                     });
-
-                    // 4. 酒店名合并逻辑
-                    let hotelSpan = 1;
-                    if (rIdx === 0 || row.h_t !== day.rows[rIdx-1].h_t) {
-                        for(let i=rIdx+1; i<day.rows.length; i++) {
-                            if(day.rows[i].h_t === row.h_t && row.h_t !== "") hotelSpan++; else break;
-                        }
-                        tr.innerHTML += `<td rowspan="${hotelSpan}"><input value="${row.h_t||''}" onblur="updateVal(${dIdx},${rIdx},'h_t',this.value)"></td>`;
-                    }
-
-                    // 5. 其余列
-                    ['p3','t4','p4'].forEach(k => {
-                        tr.innerHTML += `<td><input value="${(row[k]===0?'':row[k])||''}" onblur="${k.startsWith('p')?'updateMath':'updateVal'}(${dIdx},${rIdx},'${k}',this.value)"></td>`;
-                    });
-
                     tr.innerHTML += `<td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕</td>`;
                     tbody.appendChild(tr);
                 });
@@ -238,17 +238,22 @@
         }
     }
 
+    function updateGlobalStats() {
+        let total = 0, count = 0;
+        Object.values(window.trips).forEach(t => {
+            if(t.isHistory) return; count++;
+            if (t.days) t.days.forEach(d => d.rows.forEach(r => { total += (Number(r.p1)||0) + (Number(r.p2)||0) + (Number(r.p3)||0) + (Number(r.p4)||0); }));
+        });
+        document.getElementById('stat-trips').innerText = count;
+        document.getElementById('stat-money').innerText = '￥' + total.toLocaleString();
+    }
+
     function updateDetailStats() {
         const trip = window.trips[window.activeId];
         let s = [0,0,0,0];
         trip.days.forEach(d => d.rows.forEach(r => { s[0]+=Number(r.p1)||0; s[1]+=Number(r.p2)||0; s[2]+=Number(r.p3)||0; s[3]+=Number(r.p4)||0; }));
         const total = s.reduce((a,b)=>a+b, 0);
-        document.getElementById('detail-stats').innerHTML = `
-            <div class="stat-card finance-card"><div class="label">行程开销总计</div><div class="value">￥${total.toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">交通</div><div class="value">￥${s[0].toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">项目</div><div class="value">￥${s[1].toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">酒店</div><div class="value">￥${s[2].toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">餐饮</div><div class="value">￥${s[3].toFixed(2)}</div></div>`;
+        document.getElementById('detail-stats').innerHTML = `<div class="stat-card" style="background:#1e293b;color:white"><div class="label" style="color:#3b82f6">本行程总计</div><div class="value">￥${total.toFixed(2)}</div></div><div class="stat-card"><div class="label">交通</div><div class="value">￥${s[0].toFixed(2)}</div></div><div class="stat-card"><div class="label">项目</div><div class="value">￥${s[1].toFixed(2)}</div></div><div class="stat-card"><div class="label">酒店</div><div class="value">￥${s[2].toFixed(2)}</div></div><div class="stat-card"><div class="label">餐饮</div><div class="value">￥${s[3].toFixed(2)}</div></div>`;
     }
 
     window.renderSidebar = () => {
@@ -256,32 +261,24 @@
         document.getElementById('go-dashboard').className = `dashboard-link ${window.activeId==='dashboard'?'active':''}`;
         Object.keys(window.trips).forEach(id => {
             const t = window.trips[id];
-            const d = document.createElement('div'); d.className = `trip-item ${id===window.activeId?'active':''} ${t.isHistory?'history-item':''}`;
+            const d = document.createElement('div'); 
+            d.className = `trip-item ${id===window.activeId?'active':''} ${t.isHistory?'history-item':''}`;
             d.onclick = () => loadTrip(id);
-            d.innerHTML = `<span>${t.isHistory?'📜':'📍'} ${t.name}</span><span style="opacity:0.3;font-size:11px;margin-left:5px" onclick="renameTrip('${id}', event)">✎</span>`;
+            d.innerHTML = `<span>${t.isHistory?'📜':'📍'} ${t.name}</span>`;
             l.appendChild(d);
         });
     };
 
-    window.renameTrip = (id, e) => { e.stopPropagation(); const n = prompt("名字", window.trips[id].name); if(n){window.trips[id].name=n; renderSidebar(); window.saveToCloud();} };
-    window.addTrip = () => { const n = prompt("新行程"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'',t1:'',p1:'',t2:'',p2:'',h_t:'',p3:'',t4:'',p4:''}]}]}; window.saveToCloud(); loadTrip(id); } };
-    window.addDay = () => { const trip = window.trips[window.activeId]; if(trip.isHistory) trip.days[0].rows.push({loc:''}); else trip.days.push({date:'', rows:[{loc:'',time:'',t1:'',p1:'',t2:'',p2:'',h_t:'',p3:'',t4:'',p4:''}]}); renderTable(trip.isHistory); window.saveToCloud(); };
-    window.addRowToLastDay = () => { const trip = window.trips[window.activeId]; if(!trip.isHistory) { trip.days[trip.days.length-1].rows.push({loc:'',time:'',t1:'',p1:'',t2:'',p2:'',h_t:'',p3:'',t4:'',p4:''}); renderTable(false); window.saveToCloud(); } };
+    window.addTrip = () => { const n = prompt("新行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'',t1:'',p1:'',t2:'',p2:'',h_t:'',p3:'',t4:'',p4:''}]}]}; window.saveToCloud(); loadTrip(id); } };
+    window.addDay = () => { 
+        const trip = window.trips[window.activeId];
+        if(trip.isHistory) trip.days[0].rows.push({loc:''});
+        else trip.days.push({date:'', rows:[{loc:'',time:'',t1:'',p1:'',t2:'',p2:'',h_t:'',p3:'',t4:'',p4:''}]});
+        renderTable(trip.isHistory); window.saveToCloud(); 
+    };
     window.delRow = (d,r) => { const t = window.trips[window.activeId]; t.days[d].rows.splice(r,1); if(!t.isHistory && t.days[d].rows.length===0) t.days.splice(d,1); renderTable(t.isHistory); window.saveToCloud(); };
     window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; window.saveToCloud(); };
-    window.updateMath = (d,r,k,v) => { 
-        const res = (function(str){ 
-            if(!str) return ''; 
-            if(!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str)) return str; 
-            try { 
-                const n = new Function('return ' + str)(); 
-                return isFinite(n) ? Number(n.toFixed(2)) : str; 
-            } catch(e) { return str; } 
-        })(v); 
-        window.trips[window.activeId].days[d].rows[r][k] = res; 
-        updateDetailStats(); 
-        window.saveToCloud(); 
-    };
+    window.updateMath = (d,r,k,v) => { const res = (function(str){ if(!str)return ''; if(!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str))return str; try{const n=new Function('return '+str)(); return isFinite(n)?Number(n.toFixed(2)):str;}catch(e){return str;}})(v); window.trips[window.activeId].days[d].rows[r][k]=res; updateDetailStats(); window.saveToCloud(); };
     window.updateDayDate = (d,v) => { window.trips[window.activeId].days[d].date=v; window.saveToCloud(); };
     function refreshView() { if (window.activeId === 'dashboard') loadDashboard(); else if (window.activeId) loadTrip(window.activeId); }
 </script>

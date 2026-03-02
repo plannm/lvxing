@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v38.6 - 拼图逻辑增强版</title>
+    <title>私人旅行高级工作台 v38.7 - 历史足迹点亮版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -31,7 +31,11 @@
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            document.getElementById('syncStatus').innerText = "☁️ 拼图算法已优化";
+            // 初始化检查：如果没有历史足迹分类，自动创建一个
+            if(!window.trips['history_only']){
+                window.trips['history_only'] = { name: "📜 历史足迹(点亮专用)", isHistory: true, days: [{date:'无需填写', rows:[{loc:''}]}] };
+            }
+            document.getElementById('syncStatus').innerText = "☁️ 足迹数据已同步";
             renderSidebar();
             refreshView();
         });
@@ -42,34 +46,26 @@
     <style>
         :root { --sidebar-bg: #1e293b; --accent: #3b82f6; --bg-main: #f1f5f9; --border-color: #e2e8f0; --radius: 12px; }
         body { font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg-main); overflow: hidden; }
-        
         #sidebar { width: 280px; background: var(--sidebar-bg); color: #f8fafc; display: flex; flex-direction: column; flex-shrink: 0; }
         .side-header { padding: 24px 20px; font-size: 18px; font-weight: 700; background: #0f172a; display: flex; justify-content: space-between; align-items: center; }
         .dashboard-link { padding: 15px 20px; margin: 10px 12px; border-radius: 8px; cursor: pointer; background: rgba(255,255,255,0.05); color: #fff; font-weight: 600; transition: 0.2s; border: 1px solid rgba(255,255,255,0.1); }
         .dashboard-link.active { background: var(--accent); }
-        
         #trip-list { flex: 1; overflow-y: auto; padding: 0 0 10px 0; }
         .trip-item { padding: 12px 15px; cursor: pointer; color: #94a3b8; margin: 4px 12px; border-radius: 8px; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; }
         .trip-item.active { background: rgba(59, 130, 246, 0.2); color: white; border-left: 4px solid var(--accent); }
-        .edit-name-btn { opacity: 0; font-size: 14px; cursor: pointer; }
-        .trip-item:hover .edit-name-btn { opacity: 0.6; }
-
+        .history-item { border: 1px dashed #475569; margin-top: 20px; color: #fbbf24; }
         #main { flex: 1; overflow: auto; display: flex; flex-direction: column; }
         .page-content { padding: 30px; display: none; flex: 1; }
         .page-content.active { display: block; }
-
-        #map-container { height: 550px; width: 100%; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: #f8fafc; margin-top: 20px; z-index: 1; }
-        
+        #map-container { height: 550px; width: 100%; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 4px 20px rgba(0,0,0,0.08); background: #f8fafc; margin-top: 20px; }
         .summary-bar { display: flex; gap: 15px; margin-bottom: 25px; }
         .stat-card { background: white; padding: 20px; border-radius: var(--radius); flex: 1; border: 1px solid var(--border-color); }
         .stat-card .value { font-size: 24px; font-weight: 800; color: #1e293b; margin-top: 5px; }
-
         .excel-box { background: white; padding: 15px; border-radius: var(--radius); border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.05); overflow-x: auto; }
-        table { border-collapse: collapse; width: 100%; min-width: 1000px; font-size: 13px; table-layout: fixed; }
+        table { border-collapse: collapse; width: 100%; min-width: 800px; font-size: 13px; }
         th { background: #f8fafc; color: #64748b; padding: 10px 8px; border: 1px solid var(--border-color); }
         td { border: 1px solid var(--border-color); height: 40px; background: white; }
         input { width: 100%; height: 100%; border: none; text-align: center; outline: none; background: transparent; }
-        .day-start { border-top: 2px solid #cbd5e1 !important; }
         .btn-add { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-bottom: 15px; }
     </style>
 </head>
@@ -88,28 +84,19 @@
         <h2 style="margin-top:0">我的足迹拼图</h2>
         <div class="summary-bar">
             <div class="stat-card"><div class="label">已踏足城市区域</div><div class="value" id="stat-cities">0</div></div>
-            <div class="stat-card"><div class="label">累计行程</div><div class="value" id="stat-trips">0</div></div>
+            <div class="stat-card"><div class="label">行程总数</div><div class="value" id="stat-trips">0</div></div>
             <div class="stat-card"><div class="label">全案总开销</div><div class="value" id="stat-money">￥0</div></div>
         </div>
         <div id="map-container"></div>
-        <p style="color:#94a3b8; font-size:12px; margin-top:10px;">* 提示：若部分城市无法显示色块，尝试在所在地加上“市”字（如：兰州市）。</p>
     </div>
 
     <div id="page-detail" class="page-content">
+        <h2 id="detail-title">行程详情</h2>
         <div class="summary-bar" id="detail-stats"></div>
-        <button class="btn-add" onclick="addDay()">+ 新增日期</button>
+        <button class="btn-add" id="add-btn" onclick="addDay()">+ 新增条目</button>
         <div class="excel-box">
-            <table>
-                <thead>
-                    <tr>
-                        <th rowspan="2" style="width:45px">天数</th><th rowspan="2" style="width:120px">日期</th>
-                        <th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th>
-                        <th colspan="2">交通</th><th colspan="2">项目</th><th colspan="2">酒店</th><th colspan="2">餐饮</th><th rowspan="2" style="width:40px">删</th>
-                    </tr>
-                    <tr>
-                        <th>详情</th><th>金额</th><th>详情</th><th>金额</th><th>名称</th><th>金额</th><th>详情</th><th>金额</th>
-                    </tr>
-                </thead>
+            <table id="main-table">
+                <thead id="table-head"></thead>
                 <tbody id="table-body"></tbody>
             </table>
         </div>
@@ -119,133 +106,109 @@
 <script>
     let map = null;
     let geoJsonLayers = [];
-    const colors = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899"];
+    const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
 
     function initMap() {
         if (map) return;
-        map = L.map('map-container').setView([35, 105], 4);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; CARTO'
-        }).addTo(map);
+        map = L.map('map-container').setView([20, 100], 2); // 初始视角放大，照顾全球
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
     }
 
-    // --- 核心修复：更智能的拼图区域获取 ---
     async function updateMapFills() {
         geoJsonLayers.forEach(l => map.removeLayer(l));
         geoJsonLayers = [];
-
         const citySet = new Set();
         Object.values(window.trips).forEach(t => {
-            if (t.days) t.days.forEach(d => d.rows.forEach(r => {
-                if (r.loc && r.loc.trim()) citySet.add(r.loc.trim());
-            }));
+            if (t.days) t.days.forEach(d => d.rows.forEach(r => { if (r.loc && r.loc.trim()) citySet.add(r.loc.trim()); }));
         });
-
         document.getElementById('stat-cities').innerText = citySet.size;
         let colorIdx = 0;
-
         for (let city of citySet) {
-            // 优化点 1: 智能补齐后缀提高匹配率
-            let searchQuery = city;
-            if (city.length < 3 && !city.endsWith('市') && !city.endsWith('省')) {
-                searchQuery = city + "市"; 
-            }
-
             try {
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(searchQuery)}&limit=1`);
+                // 优化识别逻辑：直接搜索城市名，Nominatim会自动处理全球城市
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(city)}&limit=1`);
                 const data = await resp.json();
-                
                 if (data && data.length > 0) {
                     const geo = data[0].geojson;
                     const color = colors[colorIdx % colors.length];
-                    colorIdx++;
-
-                    let layer;
-                    // 优化点 2: 判定数据类型，如果是点（Point），手动画圆充当色块
-                    if (geo.type === "Point") {
-                        layer = L.circle([geo.coordinates[1], geo.coordinates[0]], {
-                            radius: 15000, // 约15公里的半径，模拟城市区域
-                            fillColor: color,
-                            color: "#fff",
-                            weight: 1,
-                            fillOpacity: 0.7
-                        }).addTo(map);
-                    } else {
-                        // 如果是正常的面（Polygon/MultiPolygon）
-                        layer = L.geoJSON(geo, {
-                            style: { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.7 }
-                        }).addTo(map);
-                    }
-                    
-                    layer.bindPopup(`<b>${city}</b>`);
+                    let layer = (geo.type === "Point") ? 
+                        L.circle([geo.coordinates[1], geo.coordinates[0]], { radius: 20000, fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.6 }) :
+                        L.geoJSON(geo, { style: { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.6 } });
+                    layer.addTo(map).bindPopup(`<b>${city}</b>`);
                     geoJsonLayers.push(layer);
+                    colorIdx++;
                 }
-            } catch (e) { console.error("解析失败:", city); }
+            } catch (e) {}
         }
     }
 
-    // --- 界面管理 ---
     window.loadDashboard = () => {
         window.activeId = 'dashboard';
+        document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
         document.getElementById('page-dashboard').classList.add('active');
-        document.getElementById('page-detail').classList.remove('active');
-        renderSidebar();
-        initMap();
+        renderSidebar(); initMap();
         setTimeout(() => { map.invalidateSize(); updateMapFills(); }, 200);
         updateGlobalStats();
     };
 
     window.loadTrip = (id) => {
         window.activeId = id;
-        document.getElementById('page-dashboard').classList.remove('active');
+        document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
         document.getElementById('page-detail').classList.add('active');
+        const isHistory = window.trips[id].isHistory;
+        document.getElementById('detail-title').innerText = window.trips[id].name;
+        document.getElementById('detail-stats').style.display = isHistory ? 'none' : 'flex';
         renderSidebar();
-        renderTable();
+        renderTable(isHistory);
     };
 
-    function refreshView() {
-        if (window.activeId === 'dashboard') loadDashboard();
-        else if (window.activeId) loadTrip(window.activeId);
-    }
-
-    function updateGlobalStats() {
-        let total = 0;
-        Object.values(window.trips).forEach(t => {
-            if (t.days) t.days.forEach(d => d.rows.forEach(r => {
-                total += (Number(r.p1)||0) + (Number(r.p2)||0) + (Number(r.p3)||0) + (Number(r.p4)||0);
-            }));
-        });
-        document.getElementById('stat-trips').innerText = Object.keys(window.trips).length;
-        document.getElementById('stat-money').innerText = '￥' + total.toLocaleString();
-    }
-
-    // --- 表格逻辑 (保持高效版本) ---
-    const emptyRow = () => ({ loc: '', time: '', t1: '', p1: '', t2: '', p2: '', h_t: '', p3: '', t4: '', p4: '' });
-
-    function renderTable() {
+    function renderTable(isHistory) {
+        const thead = document.getElementById('table-head');
         const tbody = document.getElementById('table-body');
         tbody.innerHTML = '';
-        const trip = window.trips[window.activeId];
-        if (!trip || !trip.days) return;
-
-        trip.days.forEach((day, dIdx) => {
-            day.rows.forEach((row, rIdx) => {
+        
+        if (isHistory) {
+            thead.innerHTML = `<tr><th style="width:60px">序号</th><th>只需填写城市名 (如: 巴黎, 伦敦, 纽约)</th><th style="width:60px">操作</th></tr>`;
+            const trip = window.trips[window.activeId];
+            trip.days[0].rows.forEach((row, rIdx) => {
                 const tr = document.createElement('tr');
-                if (rIdx === 0) tr.classList.add('day-start');
-                if (rIdx === 0) {
-                    tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center;font-weight:bold;background:#f8fafc">D${dIdx+1}</td>`;
-                    tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx},this.value)"></td>`;
-                }
-                tr.innerHTML += `<td style="background:${dIdx%2==0?'#f0f9ff':'#fff'}"><input value="${row.loc||''}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)"></td>`;
-                tr.innerHTML += `<td><input value="${row.time||''}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
-                ['t1','p1','t2','p2','h_t','p3','t4','p4'].forEach(k => {
-                    tr.innerHTML += `<td><input value="${(row[k]===0?'':row[k])||''}" onblur="${k.startsWith('p')?'updateMath':'updateVal'}(${dIdx},${rIdx},'${k}',this.value)"></td>`;
-                });
-                tr.innerHTML += `<td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕</td>`;
+                tr.innerHTML = `<td style="text-align:center">${rIdx+1}</td>
+                    <td><input value="${row.loc||''}" placeholder="输入城市名后点击空白处点亮..." onblur="updateVal(0,${rIdx},'loc',this.value)"></td>
+                    <td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(0,${rIdx})">✕</td>`;
                 tbody.appendChild(tr);
             });
+        } else {
+            thead.innerHTML = `<tr><th rowspan="2" style="width:45px">天数</th><th rowspan="2" style="width:120px">日期</th><th rowspan="2" style="width:130px">所在地</th><th rowspan="2" style="width:80px">时间</th><th colspan="2">交通</th><th colspan="2">项目</th><th colspan="2">酒店</th><th colspan="2">餐饮</th><th rowspan="2" style="width:40px">删</th></tr><tr><th>详情</th><th>金额</th><th>详情</th><th>金额</th><th>名称</th><th>金额</th><th>详情</th><th>金额</th></tr>`;
+            const trip = window.trips[window.activeId];
+            trip.days.forEach((day, dIdx) => {
+                day.rows.forEach((row, rIdx) => {
+                    const tr = document.createElement('tr');
+                    if (rIdx === 0) {
+                        tr.innerHTML += `<td rowspan="${day.rows.length}" style="text-align:center;font-weight:bold;background:#f8fafc">D${dIdx+1}</td>`;
+                        tr.innerHTML += `<td rowspan="${day.rows.length}"><input type="date" value="${day.date}" onchange="updateDayDate(${dIdx},this.value)"></td>`;
+                    }
+                    tr.innerHTML += `<td><input value="${row.loc||''}" onblur="updateVal(${dIdx},${rIdx},'loc',this.value)"></td>`;
+                    tr.innerHTML += `<td><input value="${row.time||''}" onblur="updateVal(${dIdx},${rIdx},'time',this.value)"></td>`;
+                    ['t1','p1','t2','p2','h_t','p3','t4','p4'].forEach(k => {
+                        tr.innerHTML += `<td><input value="${(row[k]===0?'':row[k])||''}" onblur="${k.startsWith('p')?'updateMath':'updateVal'}(${dIdx},${rIdx},'${k}',this.value)"></td>`;
+                    });
+                    tr.innerHTML += `<td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(${dIdx},${rIdx})">✕</td>`;
+                    tbody.appendChild(tr);
+                });
+            });
+            updateDetailStats();
+        }
+    }
+
+    // --- 基础逻辑 ---
+    function updateGlobalStats() {
+        let total = 0, count = 0;
+        Object.values(window.trips).forEach(t => {
+            if(t.isHistory) return; count++;
+            if (t.days) t.days.forEach(d => d.rows.forEach(r => { total += (Number(r.p1)||0) + (Number(r.p2)||0) + (Number(r.p3)||0) + (Number(r.p4)||0); }));
         });
-        updateDetailStats();
+        document.getElementById('stat-trips').innerText = count;
+        document.getElementById('stat-money').innerText = '￥' + total.toLocaleString();
     }
 
     function updateDetailStats() {
@@ -253,34 +216,34 @@
         let s = [0,0,0,0];
         trip.days.forEach(d => d.rows.forEach(r => { s[0]+=Number(r.p1)||0; s[1]+=Number(r.p2)||0; s[2]+=Number(r.p3)||0; s[3]+=Number(r.p4)||0; }));
         const total = s.reduce((a,b)=>a+b, 0);
-        document.getElementById('detail-stats').innerHTML = `
-            <div class="stat-card" style="background:#1e293b;color:white"><div class="label" style="color:#3b82f6">本行程总计</div><div class="value" style="color:white">￥${total.toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">交通</div><div class="value">￥${s[0].toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">项目</div><div class="value">￥${s[1].toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">酒店</div><div class="value">￥${s[2].toFixed(2)}</div></div>
-            <div class="stat-card"><div class="label">餐饮</div><div class="value">￥${s[3].toFixed(2)}</div></div>`;
+        document.getElementById('detail-stats').innerHTML = `<div class="stat-card" style="background:#1e293b;color:white"><div class="label" style="color:#3b82f6">本行程总计</div><div class="value">￥${total.toFixed(2)}</div></div><div class="stat-card"><div class="label">交通</div><div class="value">￥${s[0].toFixed(2)}</div></div><div class="stat-card"><div class="label">项目</div><div class="value">￥${s[1].toFixed(2)}</div></div><div class="stat-card"><div class="label">酒店</div><div class="value">￥${s[2].toFixed(2)}</div></div><div class="stat-card"><div class="label">餐饮</div><div class="value">￥${s[3].toFixed(2)}</div></div>`;
     }
 
     window.renderSidebar = () => {
         const l = document.getElementById('trip-list'); l.innerHTML = '';
         document.getElementById('go-dashboard').className = `dashboard-link ${window.activeId==='dashboard'?'active':''}`;
         Object.keys(window.trips).forEach(id => {
-            const d = document.createElement('div'); d.className = `trip-item ${id===window.activeId?'active':''}`;
+            const t = window.trips[id];
+            const d = document.createElement('div'); 
+            d.className = `trip-item ${id===window.activeId?'active':''} ${t.isHistory?'history-item':''}`;
             d.onclick = () => loadTrip(id);
-            d.innerHTML = `<span>📍 ${window.trips[id].name}</span><span class="edit-name-btn" onclick="renameTrip('${id}', event)">✎</span>`;
+            d.innerHTML = `<span>${t.isHistory?'📜':'📍'} ${t.name}</span>`;
             l.appendChild(d);
         });
     };
-    window.renameTrip = (id, e) => { e.stopPropagation(); const n = prompt("新名字", window.trips[id].name); if(n){window.trips[id].name=n; renderSidebar(); window.saveToCloud();} };
-    window.addTrip = () => { const n = prompt("行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[emptyRow()]}]}; window.saveToCloud(); loadTrip(id); } };
-    window.addDay = () => { window.trips[window.activeId].days.push({date:'', rows:[emptyRow()]}); renderTable(); window.saveToCloud(); };
-    window.delRow = (d,r) => { const trip = window.trips[window.activeId]; trip.days[d].rows.splice(r,1); if(trip.days[d].rows.length===0) trip.days.splice(d,1); renderTable(); window.saveToCloud(); };
-    window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; if(k==='loc'&&window.activeId==='dashboard') updateMapFills(); window.saveToCloud(); };
-    window.updateMath = (d,r,k,v) => { 
-        const res = (function(str){ if(!str)return ''; if(!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str))return str; try{const n=new Function('return '+str)(); return isFinite(n)?Number(n.toFixed(2)):str;}catch(e){return str;}})(v);
-        window.trips[window.activeId].days[d].rows[r][k]=res; updateDetailStats(); window.saveToCloud(); 
+
+    window.addTrip = () => { const n = prompt("新行程名称"); if(n){ const id='t'+Date.now(); window.trips[id]={name:n, days:[{date:'', rows:[{loc:'',time:'',t1:'',p1:'',t2:'',p2:'',h_t:'',p3:'',t4:'',p4:''}]}]}; window.saveToCloud(); loadTrip(id); } };
+    window.addDay = () => { 
+        const trip = window.trips[window.activeId];
+        if(trip.isHistory) trip.days[0].rows.push({loc:''});
+        else trip.days.push({date:'', rows:[{loc:'',time:'',t1:'',p1:'',t2:'',p2:'',h_t:'',p3:'',t4:'',p4:''}]});
+        renderTable(trip.isHistory); window.saveToCloud(); 
     };
+    window.delRow = (d,r) => { const t = window.trips[window.activeId]; t.days[d].rows.splice(r,1); if(!t.isHistory && t.days[d].rows.length===0) t.days.splice(d,1); renderTable(t.isHistory); window.saveToCloud(); };
+    window.updateVal = (d,r,k,v) => { window.trips[window.activeId].days[d].rows[r][k]=v; window.saveToCloud(); };
+    window.updateMath = (d,r,k,v) => { const res = (function(str){ if(!str)return ''; if(!/^[\d\+\-\*\/\.\(\)\s]+$/.test(str))return str; try{const n=new Function('return '+str)(); return isFinite(n)?Number(n.toFixed(2)):str;}catch(e){return str;}})(v); window.trips[window.activeId].days[d].rows[r][k]=res; updateDetailStats(); window.saveToCloud(); };
     window.updateDayDate = (d,v) => { window.trips[window.activeId].days[d].date=v; window.saveToCloud(); };
+    function refreshView() { if (window.activeId === 'dashboard') loadDashboard(); else if (window.activeId) loadTrip(window.activeId); }
 </script>
 </body>
 </html>

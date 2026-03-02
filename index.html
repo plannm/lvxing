@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>私人旅行高级工作台 v38.7 - 历史足迹点亮版</title>
+    <title>私人旅行高级工作台 v38.8 - 完美拼图版</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -31,11 +31,10 @@
         onValue(window.dbRef, (snapshot) => {
             const data = snapshot.val();
             window.trips = data || {};
-            // 初始化检查：如果没有历史足迹分类，自动创建一个
             if(!window.trips['history_only']){
                 window.trips['history_only'] = { name: "📜 历史足迹(点亮专用)", isHistory: true, days: [{date:'无需填写', rows:[{loc:''}]}] };
             }
-            document.getElementById('syncStatus').innerText = "☁️ 足迹数据已同步";
+            document.getElementById('syncStatus').innerText = "☁️ 拼图算法已重构";
             renderSidebar();
             refreshView();
         });
@@ -83,7 +82,7 @@
     <div id="page-dashboard" class="page-content">
         <h2 style="margin-top:0">我的足迹拼图</h2>
         <div class="summary-bar">
-            <div class="stat-card"><div class="label">已踏足城市区域</div><div class="value" id="stat-cities">0</div></div>
+            <div class="stat-card"><div class="label">已踏足区域</div><div class="value" id="stat-cities">0</div></div>
             <div class="stat-card"><div class="label">行程总数</div><div class="value" id="stat-trips">0</div></div>
             <div class="stat-card"><div class="label">全案总开销</div><div class="value" id="stat-money">￥0</div></div>
         </div>
@@ -106,12 +105,46 @@
 <script>
     let map = null;
     let geoJsonLayers = [];
-    const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#06b6d4"];
+    // 采用一组更有质感的马卡龙拼图色
+    const colors = ["#4776E6", "#10b981", "#FF8008", "#ef4444", "#8e44ad", "#2c3e50", "#16a085"];
 
     function initMap() {
         if (map) return;
-        map = L.map('map-container').setView([20, 100], 2); // 初始视角放大，照顾全球
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { attribution: '&copy; CARTO' }).addTo(map);
+        map = L.map('map-container').setView([30, 105], 4);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', { 
+            attribution: '&copy; CARTO' 
+        }).addTo(map);
+    }
+
+    // --- 核心修复：更强的边界抓取逻辑 ---
+    async function fetchBoundary(city) {
+        // 尝试两种搜索策略：原名，以及加了“市”的名称
+        const queries = [city];
+        if (city.length < 4 && !city.endsWith('市') && !city.endsWith('区')) {
+            queries.push(city + "市");
+        }
+
+        for (let q of queries) {
+            try {
+                // 重点：增加 polygon_threshold 参数，并优先匹配边界
+                const url = `https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(q)}&limit=5`;
+                const resp = await fetch(url);
+                const results = await resp.json();
+                
+                if (results && results.length > 0) {
+                    // 在结果中寻找类型为 'administrative' 且具有 GeoJSON 面的结果
+                    const bestMatch = results.find(r => r.class === "boundary" || r.type === "administrative") || results[0];
+                    if (bestMatch.geojson && bestMatch.geojson.type !== "Point") {
+                        return { geo: bestMatch.geojson, name: city };
+                    }
+                    // 如果只找到了点，先记住它，作为最后的兜底
+                    if (bestMatch.geojson.type === "Point") {
+                        this.fallbackPoint = bestMatch.geojson;
+                    }
+                }
+            } catch (e) {}
+        }
+        return null;
     }
 
     async function updateMapFills() {
@@ -122,26 +155,32 @@
             if (t.days) t.days.forEach(d => d.rows.forEach(r => { if (r.loc && r.loc.trim()) citySet.add(r.loc.trim()); }));
         });
         document.getElementById('stat-cities').innerText = citySet.size;
+        
         let colorIdx = 0;
         for (let city of citySet) {
-            try {
-                // 优化识别逻辑：直接搜索城市名，Nominatim会自动处理全球城市
-                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&polygon_geojson=1&q=${encodeURIComponent(city)}&limit=1`);
-                const data = await resp.json();
-                if (data && data.length > 0) {
-                    const geo = data[0].geojson;
-                    const color = colors[colorIdx % colors.length];
-                    let layer = (geo.type === "Point") ? 
-                        L.circle([geo.coordinates[1], geo.coordinates[0]], { radius: 20000, fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.6 }) :
-                        L.geoJSON(geo, { style: { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.6 } });
-                    layer.addTo(map).bindPopup(`<b>${city}</b>`);
-                    geoJsonLayers.push(layer);
-                    colorIdx++;
-                }
-            } catch (e) {}
+            const result = await fetchBoundary(city);
+            const color = colors[colorIdx % colors.length];
+            colorIdx++;
+
+            if (result && result.geo) {
+                // 绘制真实行政边界拼图
+                const layer = L.geoJSON(result.geo, {
+                    style: { fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.65 }
+                }).addTo(map);
+                layer.bindPopup(`<b>${city}</b>`);
+                geoJsonLayers.push(layer);
+            } else if (this.fallbackPoint) {
+                // 只有在实在找不到边界的情况下，才用圆圈保底
+                const layer = L.circle([this.fallbackPoint.coordinates[1], this.fallbackPoint.coordinates[0]], {
+                    radius: 25000, fillColor: color, color: "#fff", weight: 1, fillOpacity: 0.6
+                }).addTo(map);
+                layer.bindPopup(`<b>${city}</b> (范围近似)`);
+                geoJsonLayers.push(layer);
+            }
         }
     }
 
+    // --- 界面管理逻辑保持不变 ---
     window.loadDashboard = () => {
         window.activeId = 'dashboard';
         document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
@@ -166,14 +205,13 @@
         const thead = document.getElementById('table-head');
         const tbody = document.getElementById('table-body');
         tbody.innerHTML = '';
-        
         if (isHistory) {
-            thead.innerHTML = `<tr><th style="width:60px">序号</th><th>只需填写城市名 (如: 巴黎, 伦敦, 纽约)</th><th style="width:60px">操作</th></tr>`;
+            thead.innerHTML = `<tr><th style="width:60px">序号</th><th>只需填写城市名 (如: 兰州, 伦敦, 纽约)</th><th style="width:60px">操作</th></tr>`;
             const trip = window.trips[window.activeId];
             trip.days[0].rows.forEach((row, rIdx) => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `<td style="text-align:center">${rIdx+1}</td>
-                    <td><input value="${row.loc||''}" placeholder="输入城市名后点击空白处点亮..." onblur="updateVal(0,${rIdx},'loc',this.value)"></td>
+                    <td><input value="${row.loc||''}" placeholder="输入城市后点击空白处..." onblur="updateVal(0,${rIdx},'loc',this.value)"></td>
                     <td style="text-align:center;cursor:pointer;color:#ccc" onclick="delRow(0,${rIdx})">✕</td>`;
                 tbody.appendChild(tr);
             });
@@ -200,7 +238,6 @@
         }
     }
 
-    // --- 基础逻辑 ---
     function updateGlobalStats() {
         let total = 0, count = 0;
         Object.values(window.trips).forEach(t => {
